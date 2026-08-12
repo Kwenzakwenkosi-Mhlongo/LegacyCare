@@ -13,73 +13,71 @@ jobs:
     permissions:
       contents: read
 
+    defaults:
+      run:
+        working-directory: Web/legacycare_website
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
-          cache: 'npm'
+          node-version: "24.x"
+          cache: "npm"
           cache-dependency-path: Web/legacycare_website/package-lock.json
 
       - name: Install dependencies
-        working-directory: Web/legacycare_website
         run: npm ci
 
-      - name: Build Next.js app
-        working-directory: Web/legacycare_website
+      - name: Build Next.js
         run: npm run build
 
       - name: Check Next.js build
-        working-directory: Web/legacycare_website
         run: |
-          echo "Checking .next folder..."
-          ls -la .next
-          echo "Checking Next.js..."
-          npm list next
+          echo "Checking .next..."
+          ls -la
+          test -d .next
+          echo ".next folder exists"
 
-      - name: Prepare deployment package
+      - name: Check Next.js installation
         run: |
+          echo "Checking Next.js installation..."
+          npm list next
+          test -f node_modules/.bin/next
+          echo "Next.js executable found"
+
+      - name: Create deployment package
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -rf deploy
           mkdir -p deploy
+
+          echo "Copying Next.js build..."
 
           cp -r Web/legacycare_website/.next deploy/.next
           cp -r Web/legacycare_website/public deploy/public
-
           cp Web/legacycare_website/package.json deploy/package.json
           cp Web/legacycare_website/package-lock.json deploy/package-lock.json
+          cp Web/legacycare_website/next.config.ts deploy/next.config.ts
 
-          if [ -f Web/legacycare_website/next.config.ts ]; then
-            cp Web/legacycare_website/next.config.ts deploy/next.config.ts
-          fi
+          echo "Installing production dependencies..."
 
-          if [ -f Web/legacycare_website/next.config.js ]; then
-            cp Web/legacycare_website/next.config.js deploy/next.config.js
-          fi
+          cd deploy
+          npm ci --omit=dev
 
-          if [ -f Web/legacycare_website/next.config.mjs ]; then
-            cp Web/legacycare_website/next.config.mjs deploy/next.config.mjs
-          fi
+          echo "Deployment package contents:"
+          ls -la
 
-          echo "DEPLOYMENT PACKAGE:"
-          ls -la deploy
+          echo "Checking .next:"
+          test -d .next
+          echo ".next exists"
 
-      - name: Install production dependencies
-        working-directory: deploy
-        run: npm ci --omit=dev
+          echo "Checking Next.js:"
+          npm list next
 
-      - name: Verify deployment package
-        run: |
-          echo "Checking deployment package..."
-          test -d deploy/.next
-          test -f deploy/package.json
-          test -d deploy/node_modules
-          echo "Next.js production build exists."
-          echo "Production dependencies exist."
-          ls -la deploy/.next
-
-      - name: Upload artifact
+      - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -94,7 +92,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact
+      - name: Download deployment package
         uses: actions/download-artifact@v4
         with:
           name: node-app
@@ -104,10 +102,17 @@ jobs:
         run: |
           echo "Downloaded deployment package:"
           ls -la deploy
+
           echo "Checking .next:"
-          ls -la deploy/.next
+          test -d deploy/.next
+
           echo "Checking package.json:"
-          cat deploy/package.json
+          test -f deploy/package.json
+
+          echo "Checking node_modules:"
+          test -d deploy/node_modules
+
+          echo "Deployment package is ready"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -119,6 +124,6 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'legacycare-frontend5'
-          slot-name: 'Production'
+          app-name: legacycare-frontend5
+          slot-name: Production
           package: ./deploy
