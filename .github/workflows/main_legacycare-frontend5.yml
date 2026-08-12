@@ -42,11 +42,7 @@ jobs:
           echo "================================="
 
           pwd
-
-          echo "Project files:"
           ls -la
-
-          echo "Checking .next folder..."
 
           if [ ! -d ".next" ]; then
             echo "ERROR: .next folder does not exist!"
@@ -54,9 +50,6 @@ jobs:
           fi
 
           echo ".next folder EXISTS"
-
-          echo "Contents of .next:"
-          ls -la .next
 
       - name: Create deployment package
         run: |
@@ -67,71 +60,46 @@ jobs:
           rm -rf deploy
           mkdir -p deploy
 
-          echo "Copying .next..."
+          cp -r Web/legacycare_website/.next deploy/.next
+          cp -r Web/legacycare_website/public deploy/public
 
-          cp -r Web/legacycare_website/.next ./deploy/.next
+          cp Web/legacycare_website/package.json deploy/package.json
+          cp Web/legacycare_website/package-lock.json deploy/package-lock.json
+          cp Web/legacycare_website/next.config.ts deploy/next.config.ts
 
-          echo "Copying public..."
-
-          cp -r Web/legacycare_website/public ./deploy/public
-
-          echo "Copying package.json..."
-
-          cp Web/legacycare_website/package.json ./deploy/package.json
-
-          echo "Copying package-lock.json..."
-
-          cp Web/legacycare_website/package-lock.json ./deploy/package-lock.json
-
-          echo "Copying next.config.ts..."
-
-          cp Web/legacycare_website/next.config.ts ./deploy/next.config.ts
-
-          echo "================================="
-          echo "DEPLOY PACKAGE BEFORE NPM CI"
-          echo "================================="
-
-          ls -la deploy
-
-          echo "Checking .next..."
-
-          if [ ! -d "deploy/.next" ]; then
-            echo "ERROR: deploy/.next DOES NOT EXIST"
-            exit 1
-          fi
-
-          echo "deploy/.next EXISTS"
-
-      - name: Install production dependencies
-        working-directory: deploy
-        run: npm ci --omit=dev
-
-      - name: Final deployment package check
-        run: |
           echo "================================="
           echo "FINAL DEPLOYMENT PACKAGE"
           echo "================================="
 
           ls -la deploy
 
-          echo "Checking .next..."
-
           if [ ! -d "deploy/.next" ]; then
-            echo "ERROR: .next missing from final package"
+            echo "ERROR: .next missing!"
+            exit 1
+          fi
+
+          if [ ! -f "deploy/package.json" ]; then
+            echo "ERROR: package.json missing!"
+            exit 1
+          fi
+
+          if [ ! -f "deploy/package-lock.json" ]; then
+            echo "ERROR: package-lock.json missing!"
             exit 1
           fi
 
           echo ".next FOUND"
+          echo "package.json FOUND"
+          echo "package-lock.json FOUND"
 
-          echo "Checking Next.js..."
+          echo "Checking that node_modules is NOT included..."
 
-          if [ ! -f "deploy/node_modules/.bin/next" ]; then
-            echo "ERROR: Next.js executable missing"
+          if [ -d "deploy/node_modules" ]; then
+            echo "ERROR: node_modules should not be deployed!"
             exit 1
           fi
 
-          echo "Next.js executable FOUND"
-
+          echo "node_modules NOT included"
           echo "Package is ready for Azure."
 
       - name: Upload deployment artifact
@@ -167,32 +135,31 @@ jobs:
 
           ls -la deploy
 
-          echo "Checking .next..."
-
           if [ ! -d "deploy/.next" ]; then
-            echo "ERROR: .next is missing from downloaded artifact!"
+            echo "ERROR: .next is missing!"
+            exit 1
+          fi
+
+          if [ ! -f "deploy/package.json" ]; then
+            echo "ERROR: package.json is missing!"
+            exit 1
+          fi
+
+          if [ ! -f "deploy/package-lock.json" ]; then
+            echo "ERROR: package-lock.json is missing!"
+            exit 1
+          fi
+
+          if [ -d "deploy/node_modules" ]; then
+            echo "ERROR: node_modules is included!"
             exit 1
           fi
 
           echo ".next EXISTS"
-
-          echo "Checking package.json..."
-
-          if [ ! -f "deploy/package.json" ]; then
-            echo "ERROR: package.json missing!"
-            exit 1
-          fi
-
           echo "package.json EXISTS"
-
-          echo "Checking Next.js..."
-
-          if [ ! -f "deploy/node_modules/.bin/next" ]; then
-            echo "ERROR: Next.js executable missing!"
-            exit 1
-          fi
-
-          echo "Next.js executable EXISTS"
+          echo "package-lock.json EXISTS"
+          echo "node_modules NOT included"
+          echo "Deployment package is valid."
 
       - name: Login to Azure
         uses: azure/login@v2
