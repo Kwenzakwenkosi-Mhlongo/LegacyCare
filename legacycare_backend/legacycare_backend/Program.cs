@@ -95,7 +95,9 @@ builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IStaffService, StaffService>();
 builder.Services.AddScoped<IClientValidationService, ClientValidationService>();
 builder.Services.AddScoped<IStaffValidationService, StaffValidationService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHttpClient<IEmailService, EmailService>();
+
+
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(
@@ -115,6 +117,8 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
+
 
 var app = builder.Build();
 

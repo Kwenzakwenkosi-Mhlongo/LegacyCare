@@ -1,14 +1,19 @@
-using System.Net;
-using System.Net.Mail;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace PolicyManagement.Services
 {
     public class EmailService : IEmailService
     {
+        private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
 
-        public EmailService(IConfiguration configuration)
+        public EmailService(
+            HttpClient httpClient,
+            IConfiguration configuration)
         {
+            _httpClient = httpClient;
             _configuration = configuration;
         }
 
@@ -17,86 +22,82 @@ namespace PolicyManagement.Services
             string recipientName,
             string setupLink)
         {
-            var smtpHost = _configuration["Email:SmtpHost"];
-            var smtpPort = int.Parse(
-                _configuration["Email:SmtpPort"] ?? "587"
-            );
+            var apiKey = _configuration["RESEND_API_KEY"];
 
-            var smtpUsername = _configuration["Email:Username"];
-            var smtpPassword = _configuration["Email:Password"];
-            var fromEmail = _configuration["Email:From"];
-
-            Console.WriteLine("=================================");
-            Console.WriteLine("EMAIL SERVICE");
-            Console.WriteLine($"SMTP Host: {smtpHost}");
-            Console.WriteLine($"SMTP Port: {smtpPort}");
-            Console.WriteLine($"Username: {smtpUsername}");
-            Console.WriteLine($"Sending To: {recipientEmail}");
-            Console.WriteLine($"Setup Link: {setupLink}");
-            Console.WriteLine("=================================");
-
-            if (string.IsNullOrWhiteSpace(smtpUsername))
-                throw new Exception("Email username is missing.");
-
-            if (string.IsNullOrWhiteSpace(smtpPassword))
-                throw new Exception("Email password/app password is missing.");
-
-            if (string.IsNullOrWhiteSpace(smtpHost))
-                throw new Exception("SMTP host is missing.");
-
-            using var message = new MailMessage();
-
-            message.From = new MailAddress(
-                fromEmail ?? smtpUsername,
-                "LegacyCare"
-            );
-
-            message.To.Add(recipientEmail);
-
-            message.Subject = "LegacyCare - Set Your Password";
-
-            message.Body = $"""
-                Hello {recipientName},
-
-                Your LegacyCare account has been created.
-
-                Please click the link below to set your password:
-
-                {setupLink}
-
-                This link will expire in 24 hours.
-
-                Regards,
-                LegacyCare
-                """;
-
-            message.IsBodyHtml = false;
-
-            using var smtp = new SmtpClient(smtpHost, smtpPort)
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                EnableSsl = true,
-                Credentials = new NetworkCredential(
-                    smtpUsername,
-                    smtpPassword
-                )
-            };
-
-            try
-            {
-                await smtp.SendMailAsync(message);
-
-                Console.WriteLine(
-                    $"EMAIL SENT SUCCESSFULLY TO: {recipientEmail}"
+                throw new InvalidOperationException(
+                    "RESEND_API_KEY is not configured."
                 );
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("=================================");
-                Console.WriteLine("EMAIL FAILED");
-                Console.WriteLine(ex.ToString());
-                Console.WriteLine("=================================");
 
-                throw;
+            var email = new
+            {
+                from = "LegacyCare <onboarding@resend.dev>",
+                to = new[] { recipientEmail },
+                subject = "LegacyCare - Set Your Password",
+                html = $"""
+                    <h2>Welcome to LegacyCare</h2>
+
+                    <p>Hello {recipientName},</p>
+
+                    <p>
+                        Your LegacyCare account has been created.
+                    </p>
+
+                    <p>
+                        Click the button below to create your password:
+                    </p>
+
+                    <p>
+                        <a href="{setupLink}"
+                           style="
+                           display:inline-block;
+                           padding:12px 20px;
+                           background:#2563eb;
+                           color:white;
+                           text-decoration:none;
+                           border-radius:6px;">
+                           Set Your Password
+                        </a>
+                    </p>
+
+                    <p>
+                        This link expires after 24 hours.
+                    </p>
+
+                    <p>
+                        Regards,<br>
+                        LegacyCare
+                    </p>
+                    """
+            };
+
+            var json = JsonSerializer.Serialize(email);
+
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                "https://api.resend.com/emails"
+            );
+
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", apiKey);
+
+            request.Content = new StringContent(
+                json,
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            using var response = await _httpClient.SendAsync(request);
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception(
+                    $"Resend email failed. Status: {response.StatusCode}. Response: {responseBody}"
+                );
             }
         }
     }
