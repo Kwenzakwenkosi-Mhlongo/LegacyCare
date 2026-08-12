@@ -18,7 +18,20 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolicyManagement.Models.UserManagement;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    EnvironmentName = Environments.Production
+});
+
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.json",
+        optional: true,
+        reloadOnChange: false)
+    .AddEnvironmentVariables();
 
 
 
@@ -114,7 +127,8 @@ else
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+// HTTPS is handled by Render
 app.UseRouting();
 
 app.UseCors("AllowFrontend");
