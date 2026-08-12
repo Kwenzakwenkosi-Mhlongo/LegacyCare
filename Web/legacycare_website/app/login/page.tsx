@@ -78,7 +78,7 @@ export default function LoginForm() {
       {/* LEFT SIDE */}
       <div className="hidden lg:flex relative w-1/2 overflow-hidden">
         <Image
-          src="/images/login/login-bg.jpg"
+          src="/images/login/login-bg.png"
           alt="Background"
           fill
           priority
