@@ -1,3 +1,6 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
 name: Build and deploy ASP.Net Core app to Azure Web App - legacycare-api-2026
 
 on:
@@ -9,54 +12,54 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     permissions:
-      contents: read
+      contents: read #This is required for actions/checkout
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up .NET
+      - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
 
-      - name: Build
-        run: dotnet build "legacycare_backend/legacycare_backend/PolicyManagement.csproj" --configuration Release
+      - name: Build with dotnet
+        run: dotnet build --configuration Release
 
-      - name: Publish
-        run: dotnet publish "legacycare_backend/legacycare_backend/PolicyManagement.csproj" --configuration Release --output "${{ env.DOTNET_ROOT }}/myapp"
+      - name: dotnet publish
+        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
 
-      - name: Upload artifact
+      - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ${{ env.DOTNET_ROOT }}/myapp
+          path: ${{env.DOTNET_ROOT}}/myapp
 
   deploy:
     runs-on: windows-latest
     needs: build
-
     permissions:
-      id-token: write
-      contents: read
+      id-token: write #This is required for requesting the JWT
+      contents: read #This is required for actions/checkout
 
     steps:
-      - name: Download artifact
+      - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D55E7C8D36A64F79ABA03C4676D3B500 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_76AE2630CC9A4B74AEEE74BBE78DB6B5 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_753D9B03FDCC4A7189241DD51FC967D9 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_50E38E72035F42289C8FC1DFFCE9A98C }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_914E4588241140BF8DDED8962F5D3946 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BE01F9F258AB4CA9ABBC949779BCCD6B }}
 
       - name: Deploy to Azure Web App
+        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'legacycare-api-2026'
           slot-name: 'Production'
           package: .
+          
