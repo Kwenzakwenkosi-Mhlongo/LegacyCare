@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PolicyManagement.Models.UserManagement;
 using PolicyManagement.Service.UserManagement;
 using System.Security.Claims;
 
@@ -15,7 +16,6 @@ namespace PolicyManagement.Controllers.UserManagement
         {
             _clientService = clientService;
         }
-
 
         // =========================================================
         // GET ALL CLIENTS
@@ -34,35 +34,7 @@ namespace PolicyManagement.Controllers.UserManagement
             }
             catch (Exception ex)
             {
-                return StatusCode(
-                    500,
-                    new
-                    {
-                        message = ex.Message
-                    });
-            }
-        }
-
-
-        // =========================================================
-        // GET CLIENT BY CLIENT ID
-        // Admin use
-        // =========================================================
-
-        [HttpGet("{clientId}")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetClientById(string clientId)
-        {
-            try
-            {
-                var client =
-                    _clientService.GetClientById(clientId);
-
-                return Ok(client);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new
+                return StatusCode(500, new
                 {
                     message = ex.Message
                 });
@@ -81,9 +53,9 @@ namespace PolicyManagement.Controllers.UserManagement
         {
             try
             {
-                var userId =
-                    User.FindFirstValue(
-                        ClaimTypes.NameIdentifier);
+                var userId = User.FindFirstValue(
+                    ClaimTypes.NameIdentifier
+                );
 
                 if (string.IsNullOrEmpty(userId))
                 {
@@ -93,8 +65,7 @@ namespace PolicyManagement.Controllers.UserManagement
                     });
                 }
 
-                var client =
-                    _clientService.GetClientByUserId(userId);
+                var client = _clientService.GetClientByUserId(userId);
 
                 return Ok(client);
             }
@@ -107,32 +78,106 @@ namespace PolicyManagement.Controllers.UserManagement
             }
             catch (Exception ex)
             {
-                return StatusCode(
-                    500,
-                    new
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // =========================================================
+        // GET CLIENT BY CLIENT ID
+        // Admin use
+        // =========================================================
+
+        [HttpGet("{clientId}")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult GetClientById(string clientId)
+        {
+            try
+            {
+                var client = _clientService.GetClientById(clientId);
+
+                return Ok(client);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        // =========================================================
+        // CREATE CLIENT
+        // Admin use
+        // =========================================================
+
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public IActionResult CreateClient([FromBody] Client client)
+        {
+            try
+            {
+                if (client == null)
+                {
+                    return BadRequest(new
                     {
-                        message = ex.Message
+                        message = "Client information is required."
                     });
+                }
+
+                var createdClient =
+                    _clientService.CreateClient(client);
+
+                return Ok(createdClient);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
             }
         }
 
 
         // =========================================================
         // UPDATE CLIENT
+        // Admin use
         // =========================================================
 
         [HttpPut("{clientId}")]
         [Authorize(Roles = "Admin")]
         public IActionResult UpdateClient(
             string clientId,
-            [FromBody] PolicyManagement.DTOs.Requests.UpdateClientRequest request)
+            [FromBody]
+            PolicyManagement.DTOs.Requests.UpdateClientRequest request)
         {
             try
             {
-                var result =
-                    _clientService.UpdateClient(
-                        clientId,
-                        request);
+                if (request == null)
+                {
+                    return BadRequest(new
+                    {
+                        message = "Client update information is required."
+                    });
+                }
+
+                _clientService.UpdateClient(
+                    clientId,
+                    request
+                );
 
                 return Ok(new
                 {
@@ -148,24 +193,22 @@ namespace PolicyManagement.Controllers.UserManagement
             }
             catch (Exception ex)
             {
-                return StatusCode(
-                    500,
-                    new
-                    {
-                        message = ex.Message
-                    });
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
             }
         }
 
 
         // =========================================================
         // ACTIVATE CLIENT
+        // Admin use
         // =========================================================
 
         [HttpPut("{clientId}/activate")]
         [Authorize(Roles = "Admin")]
-        public IActionResult ActivateClient(
-            string clientId)
+        public IActionResult ActivateClient(string clientId)
         {
             try
             {
@@ -183,17 +226,24 @@ namespace PolicyManagement.Controllers.UserManagement
                     message = ex.Message
                 });
             }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = ex.Message
+                });
+            }
         }
 
 
         // =========================================================
         // DELETE CLIENT
+        // Admin use
         // =========================================================
 
         [HttpDelete("{clientId}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult DeleteClient(
-            string clientId)
+        public IActionResult DeleteClient(string clientId)
         {
             try
             {
@@ -207,6 +257,13 @@ namespace PolicyManagement.Controllers.UserManagement
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
                 {
                     message = ex.Message
                 });

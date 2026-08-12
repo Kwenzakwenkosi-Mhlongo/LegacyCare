@@ -2,17 +2,26 @@ using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Data;
 using PolicyManagement.DTOs.Requests;
 using PolicyManagement.Models.UserManagement;
+using System.Security.Cryptography;
 
 namespace PolicyManagement.Service.UserManagement
 {
     public class ClientService : IClientService
     {
         private readonly AppDbContext _context;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public ClientService(AppDbContext context)
+        public ClientService(
+            AppDbContext context,
+            IEmailService emailService,
+            IConfiguration configuration)
         {
             _context = context;
+            _emailService = emailService;
+            _configuration = configuration;
         }
+
 
         // =========================================================
         // ADMIN - GET ALL CLIENTS
@@ -73,15 +82,130 @@ namespace PolicyManagement.Service.UserManagement
 
         // =========================================================
         // CREATE CLIENT
+        // Creates client + password setup token + email
         // =========================================================
 
         public Client CreateClient(Client client)
         {
+            if (client == null)
+            {
+                throw new ArgumentNullException(
+                    nameof(client),
+                    "Client information is required."
+                );
+            }
+
+            if (client.User == null)
+            {
+                throw new InvalidOperationException(
+                    "Client user information is required."
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(client.User.Email))
+            {
+                throw new InvalidOperationException(
+                    "Client email address is required."
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(client.User.FullName))
+            {
+                throw new InvalidOperationException(
+                    "Client full name is required."
+                );
+            }
+
+
+            // -----------------------------------------------------
+            // Generate Client ID
+            // -----------------------------------------------------
+
             client.ClientId = GenerateClientId();
+
+
+            // -----------------------------------------------------
+            // Prepare User
+            // -----------------------------------------------------
+
+            client.User.UserId = Guid.NewGuid().ToString();
+
+            client.User.Role = UserRole.Client;
+
+            client.User.IsActive = true;
+
+            client.User.DateCreated = DateTime.UtcNow;
+
+            // No password yet.
+            // Client will create it using the email link.
+            client.User.PasswordHash = null;
+
+
+            // -----------------------------------------------------
+            // Generate password setup token
+            // -----------------------------------------------------
+
+            var token = Convert.ToBase64String(
+                RandomNumberGenerator.GetBytes(32)
+            )
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .Replace("=", "");
+
+
+            var passwordSetupToken = new PasswordSetupToken
+            {
+                Id = Guid.NewGuid().ToString(),
+                UserId = client.User.UserId,
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                Used = false
+            };
+
+
+            // -----------------------------------------------------
+            // Save Client + User + Token
+            // -----------------------------------------------------
 
             _context.Client.Add(client);
 
+            _context.PasswordSetupTokens.Add(
+                passwordSetupToken
+            );
+
             _context.SaveChanges();
+
+
+            // -----------------------------------------------------
+            // Build password setup URL
+            // -----------------------------------------------------
+
+            var frontendUrl =
+                _configuration["FrontendUrl"];
+
+            if (string.IsNullOrWhiteSpace(frontendUrl))
+            {
+                throw new InvalidOperationException(
+                    "FrontendUrl is not configured."
+                );
+            }
+
+            frontendUrl = frontendUrl.TrimEnd('/');
+
+            var setupLink =
+                $"{frontendUrl}/set-password?token={Uri.EscapeDataString(token)}";
+
+
+            // -----------------------------------------------------
+            // Send password setup email
+            // -----------------------------------------------------
+
+            _emailService.SendPasswordSetupEmailAsync(
+                client.User.Email,
+                client.User.FullName,
+                setupLink
+            ).GetAwaiter().GetResult();
+
 
             return client;
         }

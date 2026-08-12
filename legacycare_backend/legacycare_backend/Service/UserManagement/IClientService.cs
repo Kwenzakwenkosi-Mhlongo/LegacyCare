@@ -5,20 +5,21 @@ namespace PolicyManagement.Service.UserManagement
 {
     public interface IClientService
     {
-        // Admin functions
         IEnumerable<Client> GetAllClients();
 
         Client GetClientById(string clientId);
 
+        Client GetClientByUserId(string userId);
+
         Client CreateClient(Client client);
 
-        bool UpdateClient(string clientId, UpdateClientRequest request);
+        bool UpdateClient(
+            string clientId,
+            UpdateClientRequest request
+        );
 
         void DeleteClient(string clientId);
 
         void ActivateClient(string clientId);
-
-        // Logged-in client
-        Client GetClientByUserId(string userId);
     }
 }
