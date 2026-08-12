@@ -16,6 +16,13 @@ namespace PolicyManagement.Service.UserManagement
             _passwordService = passwordService;
         }
 
+public User CreateUserWithoutPassword(User user)
+{
+    _context.Users.Add(user);
+    _context.SaveChanges();
+
+    return user;
+}
         public IEnumerable<User> GetAllUsers()
         {
             return _context.Users.ToList();

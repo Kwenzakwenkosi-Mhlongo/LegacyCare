@@ -31,6 +31,10 @@ namespace PolicyManagement.Models.UserManagement
 
         public DateTime? LastLogin { get; set; }
 
+        public string? PasswordSetupToken { get; set; }
+
+public DateTime? PasswordSetupTokenExpiry { get; set; }
+
         public User()
         {
             UserId = Guid.NewGuid().ToString();

@@ -22,12 +22,19 @@ namespace PolicyManagement.Service.UserManagement
             string hashedPassword,
             string password)
         {
+            if (string.IsNullOrWhiteSpace(hashedPassword))
+            {
+                return false;
+            }
+
             var result = _passwordHasher.VerifyHashedPassword(
                 user,
                 hashedPassword,
-                password);
+                password
+            );
 
-            return result == PasswordVerificationResult.Success;
+            return result == PasswordVerificationResult.Success ||
+                   result == PasswordVerificationResult.SuccessRehashNeeded;
         }
     }
 }

@@ -10,6 +10,7 @@ namespace PolicyManagement.Service.UserManagement
         Task<User?> GetUserByEmail(string email);
         User CreateUser(User user);
         User? UpdateUser(string id, User user);
+        User CreateUserWithoutPassword(User user);
         bool DeleteUser(string id);
         User Login(string email, string password);
         UserResponse GetProfile(string userId);

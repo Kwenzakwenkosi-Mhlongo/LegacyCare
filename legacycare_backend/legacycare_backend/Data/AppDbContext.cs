@@ -20,6 +20,7 @@ namespace PolicyManagement.Data
         public DbSet<Package> Package { get; set; }
         public DbSet<ChangePackageRequest> ChangePackageRequest { get; set; }
         public DbSet<BeneficiaryRequest> BeneficiaryRequest { get; set; }
+        public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; }
 
         //User Management
         public DbSet<User> Users { get; set; }
@@ -153,6 +154,14 @@ namespace PolicyManagement.Data
             modelBuilder.Entity<Payment>()
                 .Property(p => p.Amount)
                 .HasColumnType("decimal(18,2)");
+
+                // PASSWORD SETUP TOKEN
+modelBuilder.Entity<PasswordSetupToken>()
+    .HasIndex(x => x.Token)
+    .IsUnique();
+
+modelBuilder.Entity<PasswordSetupToken>()
+    .HasIndex(x => x.UserId);
         }
     }
 }
