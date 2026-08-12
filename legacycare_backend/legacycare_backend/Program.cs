@@ -17,15 +17,12 @@ using QuestPDF.Infrastructure;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolicyManagement.Models.UserManagement;
+using PolicyManagement.Enums;
 
 Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "1");
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
-    Args = args,
-    EnvironmentName = Environments.Production,
-    ContentRootPath = Directory.GetCurrentDirectory()
-});
+var builder = WebApplication.CreateBuilder(args);
+
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
@@ -109,7 +106,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://legacycare-frontend.onrender.com")
+        policy.WithOrigins("http://localhost:3000",
+        "https://legacycare-frontend.onrender.com")
 
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -123,6 +121,47 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    db.Database.Migrate();
+
+    var passwordHasher = new PasswordHasher<User>();
+
+    var admin = await db.Users
+        .FirstOrDefaultAsync(u => u.Email == "kwenza.mhlong@legacycare.com");
+
+    if (admin == null)
+    {
+        admin = new User
+        {
+            UserId = "USR023",
+            FullName = "Kwenza Mhlong",
+            Email = "kwenza.mhlong@legacycare.com",
+            Role = UserRole.Admin,
+            IDNumber = "8201010000003",
+            CellNo = "0812340023",
+            Address = "Head Office",
+            DateCreated = DateTime.UtcNow,
+            IsActive = true,
+            LastLogin = null,
+            PasswordHash = string.Empty
+        };
+
+        admin.PasswordHash = passwordHasher.HashPassword(
+            admin,
+            "Password123!"
+        );
+
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+    }
+}
+
+
+
 }
 
 if (!app.Environment.IsDevelopment())
