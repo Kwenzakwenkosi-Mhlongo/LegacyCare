@@ -1,0 +1,32 @@
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# .NET
+bin/
+obj/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database backup
+PolicyDB.bak

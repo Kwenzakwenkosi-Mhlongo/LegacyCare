@@ -1,0 +1,13 @@
+POST http://localhost:5224/api/Authentication/login
+Content-Type: application/json
+
+{
+  "email": "kwenza.mhlong@legacycare.com",
+  "password": "Password123!"
+}
+
+
+###
+
+GET http://localhost:5224/api/User/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjIzIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZSI6Ikt3ZW56YSBNaGxvbmciLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9lbWFpbGFkZHJlc3MiOiJrd2VuemEubWhsb25nQGxlZ2FjeWNhcmUuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiQWRtaW4iLCJleHAiOjE3ODUxNDUwNjQsImlzcyI6IkxlZ2FjeUNhcmVBUEkiLCJhdWQiOiJMZWdhY3lDYXJlQ2xpZW50In0.Ioch819PMmYhVJj3eZT06GqHqZgi6SWl98w7G64P1PE
