@@ -46,15 +46,15 @@ export default function LoginForm() {
             break;
         
         case "Staff":
-            router.push("/staff/dashboard");
+            router.push("/staff");
             break;
 
         case "Clerk":
-            router.push("/clerk/dashboard");
+            router.push("/clerk");
             break;
 
         case "Client":
-            router.push("/client/dashboard");
+            router.push("/client");
             break;
 
         default:
