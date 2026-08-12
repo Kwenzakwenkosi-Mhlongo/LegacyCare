@@ -18,12 +18,14 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using PolicyManagement.Models.UserManagement;
 
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "1");
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
-    EnvironmentName = Environments.Production
+    EnvironmentName = Environments.Production,
+    ContentRootPath = Directory.GetCurrentDirectory()
 });
-
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
