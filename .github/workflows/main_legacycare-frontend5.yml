@@ -7,17 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
-    defaults:
-      run:
-        working-directory: Web/legacycare_website
-
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -29,62 +27,124 @@ jobs:
           cache-dependency-path: Web/legacycare_website/package-lock.json
 
       - name: Install dependencies
+        working-directory: Web/legacycare_website
         run: npm ci
 
       - name: Build Next.js
+        working-directory: Web/legacycare_website
         run: npm run build
 
-      - name: Check Next.js build
+      - name: Verify Next.js build
+        working-directory: Web/legacycare_website
         run: |
-          echo "Checking .next..."
-          ls -la
-          test -d .next
-          echo ".next folder exists"
+          echo "================================="
+          echo "CHECKING NEXT.JS BUILD"
+          echo "================================="
 
-      - name: Check Next.js installation
-        run: |
-          echo "Checking Next.js installation..."
-          npm list next
-          test -f node_modules/.bin/next
-          echo "Next.js executable found"
+          pwd
+
+          echo "Project files:"
+          ls -la
+
+          echo "Checking .next folder..."
+
+          if [ ! -d ".next" ]; then
+            echo "ERROR: .next folder does not exist!"
+            exit 1
+          fi
+
+          echo ".next folder EXISTS"
+
+          echo "Contents of .next:"
+          ls -la .next
 
       - name: Create deployment package
-        working-directory: ${{ github.workspace }}
         run: |
+          echo "================================="
+          echo "CREATING DEPLOYMENT PACKAGE"
+          echo "================================="
+
           rm -rf deploy
           mkdir -p deploy
 
-          echo "Copying Next.js build..."
+          echo "Copying .next..."
 
-          cp -r Web/legacycare_website/.next deploy/.next
-          cp -r Web/legacycare_website/public deploy/public
-          cp Web/legacycare_website/package.json deploy/package.json
-          cp Web/legacycare_website/package-lock.json deploy/package-lock.json
-          cp Web/legacycare_website/next.config.ts deploy/next.config.ts
+          cp -r Web/legacycare_website/.next ./deploy/.next
 
-          echo "Installing production dependencies..."
+          echo "Copying public..."
 
-          cd deploy
-          npm ci --omit=dev
+          cp -r Web/legacycare_website/public ./deploy/public
 
-          echo "Deployment package contents:"
-          ls -la
+          echo "Copying package.json..."
 
-          echo "Checking .next:"
-          test -d .next
-          echo ".next exists"
+          cp Web/legacycare_website/package.json ./deploy/package.json
 
-          echo "Checking Next.js:"
-          npm list next
+          echo "Copying package-lock.json..."
+
+          cp Web/legacycare_website/package-lock.json ./deploy/package-lock.json
+
+          echo "Copying next.config.ts..."
+
+          cp Web/legacycare_website/next.config.ts ./deploy/next.config.ts
+
+          echo "================================="
+          echo "DEPLOY PACKAGE BEFORE NPM CI"
+          echo "================================="
+
+          ls -la deploy
+
+          echo "Checking .next..."
+
+          if [ ! -d "deploy/.next" ]; then
+            echo "ERROR: deploy/.next DOES NOT EXIST"
+            exit 1
+          fi
+
+          echo "deploy/.next EXISTS"
+
+      - name: Install production dependencies
+        working-directory: deploy
+        run: npm ci --omit=dev
+
+      - name: Final deployment package check
+        run: |
+          echo "================================="
+          echo "FINAL DEPLOYMENT PACKAGE"
+          echo "================================="
+
+          ls -la deploy
+
+          echo "Checking .next..."
+
+          if [ ! -d "deploy/.next" ]; then
+            echo "ERROR: .next missing from final package"
+            exit 1
+          fi
+
+          echo ".next FOUND"
+
+          echo "Checking Next.js..."
+
+          if [ ! -f "deploy/node_modules/.bin/next" ]; then
+            echo "ERROR: Next.js executable missing"
+            exit 1
+          fi
+
+          echo "Next.js executable FOUND"
+
+          echo "Package is ready for Azure."
 
       - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
           path: deploy
+          include-hidden-files: true
 
   deploy:
+
     runs-on: ubuntu-latest
+
     needs: build
 
     permissions:
@@ -92,27 +152,47 @@ jobs:
       contents: read
 
     steps:
+
       - name: Download deployment package
         uses: actions/download-artifact@v4
         with:
           name: node-app
           path: deploy
 
-      - name: Check downloaded package
+      - name: Verify downloaded package
         run: |
-          echo "Downloaded deployment package:"
+          echo "================================="
+          echo "DOWNLOADED DEPLOYMENT PACKAGE"
+          echo "================================="
+
           ls -la deploy
 
-          echo "Checking .next:"
-          test -d deploy/.next
+          echo "Checking .next..."
 
-          echo "Checking package.json:"
-          test -f deploy/package.json
+          if [ ! -d "deploy/.next" ]; then
+            echo "ERROR: .next is missing from downloaded artifact!"
+            exit 1
+          fi
 
-          echo "Checking node_modules:"
-          test -d deploy/node_modules
+          echo ".next EXISTS"
 
-          echo "Deployment package is ready"
+          echo "Checking package.json..."
+
+          if [ ! -f "deploy/package.json" ]; then
+            echo "ERROR: package.json missing!"
+            exit 1
+          fi
+
+          echo "package.json EXISTS"
+
+          echo "Checking Next.js..."
+
+          if [ ! -f "deploy/node_modules/.bin/next" ]; then
+            echo "ERROR: Next.js executable missing!"
+            exit 1
+          fi
+
+          echo "Next.js executable EXISTS"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -121,7 +201,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DE1A42DEAA8346A5B9A6240CC9DFF94B }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C5738A6BE0644D56A7DB71C7FED67D04 }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure
         uses: azure/webapps-deploy@v3
         with:
           app-name: legacycare-frontend5
