@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function SetPasswordPage() {
+function SetPasswordForm() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
@@ -39,8 +39,12 @@ export default function SetPasswordPage() {
         try {
             setLoading(true);
 
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL ||
+                "https://legacycare-backend.onrender.com";
+
             const response = await fetch(
-                "http://localhost:5224/api/Authentication/set-password",
+                `${apiUrl}/api/Authentication/set-password`,
                 {
                     method: "POST",
                     headers: {
@@ -70,18 +74,22 @@ export default function SetPasswordPage() {
             }, 2000);
 
         } catch (err: any) {
-            setError(err.message || "Something went wrong.");
+            setError(
+                err.message || "Something went wrong."
+            );
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{
-            maxWidth: "400px",
-            margin: "80px auto",
-            padding: "30px"
-        }}>
+        <div
+            style={{
+                maxWidth: "400px",
+                margin: "80px auto",
+                padding: "30px",
+            }}
+        >
             <h1>Set Your Password</h1>
 
             <p>
@@ -105,7 +113,7 @@ export default function SetPasswordPage() {
                         style={{
                             width: "100%",
                             padding: "10px",
-                            marginTop: "5px"
+                            marginTop: "5px",
                         }}
                     />
                 </div>
@@ -125,7 +133,7 @@ export default function SetPasswordPage() {
                         style={{
                             width: "100%",
                             padding: "10px",
-                            marginTop: "5px"
+                            marginTop: "5px",
                         }}
                     />
                 </div>
@@ -147,13 +155,23 @@ export default function SetPasswordPage() {
                     disabled={loading}
                     style={{
                         width: "100%",
-                        padding: "12px"
+                        padding: "12px",
                     }}
                 >
-                    {loading ? "Setting Password..." : "Set Password"}
+                    {loading
+                        ? "Setting Password..."
+                        : "Set Password"}
                 </button>
 
             </form>
         </div>
+    );
+}
+
+export default function SetPasswordPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <SetPasswordForm />
+        </Suspense>
     );
 }
