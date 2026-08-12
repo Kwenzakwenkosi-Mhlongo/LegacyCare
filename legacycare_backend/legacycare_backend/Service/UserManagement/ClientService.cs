@@ -48,7 +48,7 @@ namespace PolicyManagement.Service.UserManagement
         public bool UpdateClient(string clientId, UpdateClientRequest request)
         {
             var client = GetClientById(clientId);
-            
+
             client.User.FullName = request.FullName;
             client.User.IDNumber = request.IdNumber;
             client.User.Email = request.Email;
@@ -57,14 +57,37 @@ namespace PolicyManagement.Service.UserManagement
             client.User.IsActive = request.IsActive;
 
             _context.SaveChanges();
+
             return true;
         }
 
+        // Permanently delete the Client and User
         public void DeleteClient(string clientId)
         {
             var client = GetClientById(clientId);
 
-            client.User.DeactivateAccount();
+            if (client == null)
+                throw new KeyNotFoundException("Client not found.");
+
+            var user = client.User;
+
+            // Delete password setup tokens belonging to the user
+            var passwordTokens = _context.PasswordSetupTokens
+                .Where(t => t.UserId == user.UserId)
+                .ToList();
+
+            if (passwordTokens.Any())
+            {
+                _context.PasswordSetupTokens.RemoveRange(passwordTokens);
+            }
+
+            // Delete the Client record
+            _context.Client.Remove(client);
+
+            // Delete the User record
+            _context.Users.Remove(user);
+
+            // Save all deletions
             _context.SaveChanges();
         }
 
@@ -73,14 +96,18 @@ namespace PolicyManagement.Service.UserManagement
             var client = GetClientById(clientId);
 
             client.User.ActivateAccount();
+
             _context.SaveChanges();
         }
+
         private string GenerateClientId()
         {
             var maxId = _context.Client
-            .AsEnumerable()
+                .AsEnumerable()
                 .Select(c => int.TryParse(c.ClientId, out int id) ? id : 0)
-                .DefaultIfEmpty(0).Max();
+                .DefaultIfEmpty(0)
+                .Max();
+
             return (maxId + 1).ToString();
         }
     }
