@@ -158,7 +158,36 @@ using (var scope = app.Services.CreateScope())
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            var exceptionHandler =
+                context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+
+            var logger = context.RequestServices
+                .GetRequiredService<ILogger<Program>>();
+
+            if (exceptionHandler?.Error != null)
+            {
+                logger.LogError(
+                    exceptionHandler.Error,
+                    "Unhandled exception while processing {Method} {Path}",
+                    context.Request.Method,
+                    context.Request.Path);
+            }
+
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "application/json";
+
+            await context.Response.WriteAsJsonAsync(new
+            {
+                message = "Internal server error",
+                path = context.Request.Path
+            });
+        });
+    });
+
     app.UseHsts();
 }
 else
