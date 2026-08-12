@@ -25,7 +25,7 @@ export default function TasksPage() {
     /* ---------------- API URL ---------------- */
 
     const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:5224/api";
+       process.env.NEXT_PUBLIC_API_URL || "https://legacycare-backend.onrender.com/api";
 
     /* ---------------- LOAD TASKS ---------------- */
 

@@ -1,6 +1,6 @@
 import { apiFetch } from "./api";
 
-const API_URL = "http://localhost:5224/api/staff";
+const API_URL = "https://legacycare-backend.onrender.com/api/staff";
 
 export async function getStaffs() {
     const response = await apiFetch(API_URL);
