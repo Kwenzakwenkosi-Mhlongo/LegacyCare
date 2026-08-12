@@ -14,7 +14,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -28,48 +28,17 @@ jobs:
         working-directory: Web/legacycare_website
         run: npm ci
 
-      - name: Build Next.js app
+      - name: Build Next.js application
         working-directory: Web/legacycare_website
         run: npm run build
 
-      - name: Prepare deployment package
-        run: |
-          mkdir -p deploy
-
-          cp -r Web/legacycare_website/.next deploy/.next
-          cp -r Web/legacycare_website/public deploy/public
-          cp Web/legacycare_website/package.json deploy/package.json
-          cp Web/legacycare_website/package-lock.json deploy/package-lock.json
-
-          if [ -f Web/legacycare_website/next.config.js ]; then
-            cp Web/legacycare_website/next.config.js deploy/
-          fi
-
-          if [ -f Web/legacycare_website/next.config.mjs ]; then
-            cp Web/legacycare_website/next.config.mjs deploy/
-          fi
-
-          if [ -f Web/legacycare_website/next.config.ts ]; then
-            cp Web/legacycare_website/next.config.ts deploy/
-          fi
-
-      - name: Install production dependencies
-        working-directory: deploy
-        run: npm ci --omit=dev
-
       - name: Verify Next.js installation
-        working-directory: deploy
+        working-directory: Web/legacycare_website
         run: |
-          echo "Checking Next.js..."
+          echo "Checking Next.js installation..."
           npm list next
-          test -f node_modules/next/dist/bin/next
-          echo "Next.js is installed correctly."
-
-      - name: Upload deployment artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: deploy
+          test -f node_modules/.bin/next
+          echo "Next.js executable found."
 
   deploy:
     runs-on: ubuntu-latest
@@ -80,11 +49,15 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          name: node-app
-          path: .
+          node-version: '24.x'
+          cache: 'npm'
+          cache-dependency-path: Web/legacycare_website/package-lock.json
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -93,9 +66,9 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DE1A42DEAA8346A5B9A6240CC9DFF94B }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C5738A6BE0644D56A7DB71C7FED67D04 }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy source to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: legacycare-frontend5
-          slot-name: Production
-          package: .
+          app-name: 'legacycare-frontend5'
+          slot-name: 'Production'
+          package: ./Web/legacycare_website
