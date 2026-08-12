@@ -14,14 +14,24 @@ namespace PolicyManagement.Service.UserManagement
             _context = context;
         }
 
+        // =========================================================
+        // ADMIN - GET ALL CLIENTS
+        // =========================================================
+
         public IEnumerable<Client> GetAllClients()
         {
             return _context.Client
                 .Include(c => c.User)
                 .AsEnumerable()
-                .OrderBy(c => int.TryParse(c.ClientId, out int id) ? id : 0)
+                .OrderBy(c =>
+                    int.TryParse(c.ClientId, out int id) ? id : 0)
                 .ToList();
         }
+
+
+        // =========================================================
+        // ADMIN - GET CLIENT BY CLIENT ID
+        // =========================================================
 
         public Client GetClientById(string clientId)
         {
@@ -30,22 +40,60 @@ namespace PolicyManagement.Service.UserManagement
                 .FirstOrDefault(c => c.ClientId == clientId);
 
             if (client == null)
-                throw new KeyNotFoundException("Client not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Client not found."
+                );
+            }
 
             return client;
         }
+
+
+        // =========================================================
+        // CLIENT - GET LOGGED-IN CLIENT
+        // =========================================================
+
+        public Client GetClientByUserId(string userId)
+        {
+            var client = _context.Client
+                .Include(c => c.User)
+                .FirstOrDefault(c => c.UserId == userId);
+
+            if (client == null)
+            {
+                throw new KeyNotFoundException(
+                    "Client account not found."
+                );
+            }
+
+            return client;
+        }
+
+
+        // =========================================================
+        // CREATE CLIENT
+        // =========================================================
 
         public Client CreateClient(Client client)
         {
             client.ClientId = GenerateClientId();
 
             _context.Client.Add(client);
+
             _context.SaveChanges();
 
             return client;
         }
 
-        public bool UpdateClient(string clientId, UpdateClientRequest request)
+
+        // =========================================================
+        // UPDATE CLIENT
+        // =========================================================
+
+        public bool UpdateClient(
+            string clientId,
+            UpdateClientRequest request)
         {
             var client = GetClientById(clientId);
 
@@ -61,35 +109,41 @@ namespace PolicyManagement.Service.UserManagement
             return true;
         }
 
-        // Permanently delete the Client and User
+
+        // =========================================================
+        // DELETE CLIENT
+        // =========================================================
+
         public void DeleteClient(string clientId)
         {
             var client = GetClientById(clientId);
 
-            if (client == null)
-                throw new KeyNotFoundException("Client not found.");
-
             var user = client.User;
 
-            // Delete password setup tokens belonging to the user
+            // Delete password setup tokens
             var passwordTokens = _context.PasswordSetupTokens
                 .Where(t => t.UserId == user.UserId)
                 .ToList();
 
             if (passwordTokens.Any())
             {
-                _context.PasswordSetupTokens.RemoveRange(passwordTokens);
+                _context.PasswordSetupTokens
+                    .RemoveRange(passwordTokens);
             }
 
-            // Delete the Client record
+            // Delete client
             _context.Client.Remove(client);
 
-            // Delete the User record
+            // Delete user
             _context.Users.Remove(user);
 
-            // Save all deletions
             _context.SaveChanges();
         }
+
+
+        // =========================================================
+        // ACTIVATE CLIENT
+        // =========================================================
 
         public void ActivateClient(string clientId)
         {
@@ -100,11 +154,19 @@ namespace PolicyManagement.Service.UserManagement
             _context.SaveChanges();
         }
 
+
+        // =========================================================
+        // GENERATE CLIENT ID
+        // =========================================================
+
         private string GenerateClientId()
         {
             var maxId = _context.Client
                 .AsEnumerable()
-                .Select(c => int.TryParse(c.ClientId, out int id) ? id : 0)
+                .Select(c =>
+                    int.TryParse(c.ClientId, out int id)
+                        ? id
+                        : 0)
                 .DefaultIfEmpty(0)
                 .Max();
 

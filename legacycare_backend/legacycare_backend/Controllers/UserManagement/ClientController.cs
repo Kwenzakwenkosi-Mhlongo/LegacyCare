@@ -1,195 +1,216 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PolicyManagement.Data;
-using PolicyManagement.DTOs.Requests;
-using PolicyManagement.Models.UserManagement;
 using PolicyManagement.Service.UserManagement;
-using PolicyManagement.Services;
-using PolicyManagement.Enums;
-using System.Security.Cryptography;
+using System.Security.Claims;
 
 namespace PolicyManagement.Controllers.UserManagement
 {
-    [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
     public class ClientController : ControllerBase
     {
         private readonly IClientService _clientService;
-        private readonly IUserService _userService;
-        private readonly IClientValidationService _clientValidationService;
-        private readonly IEmailService _emailService;
-        private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
 
-        public ClientController(
-            IClientService clientService,
-            IUserService userService,
-            IClientValidationService clientValidationService,
-            IEmailService emailService,
-            AppDbContext context,
-            IConfiguration configuration)
+        public ClientController(IClientService clientService)
         {
             _clientService = clientService;
-            _userService = userService;
-            _clientValidationService = clientValidationService;
-            _emailService = emailService;
-            _context = context;
-            _configuration = configuration;
         }
+
+
+        // =========================================================
+        // GET ALL CLIENTS
+        // Admin use
+        // =========================================================
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetAllClients()
         {
-            return Ok(_clientService.GetAllClients());
+            try
+            {
+                var clients = _clientService.GetAllClients();
+
+                return Ok(clients);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
         }
+
+
+        // =========================================================
+        // GET CLIENT BY CLIENT ID
+        // Admin use
+        // =========================================================
 
         [HttpGet("{clientId}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult GetClientById(string clientId)
         {
-            var client = _clientService.GetClientById(clientId);
-
-            if (client == null)
+            try
             {
-                return NotFound("Client not found.");
-            }
+                var client =
+                    _clientService.GetClientById(clientId);
 
-            return Ok(client);
+                return Ok(client);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
         }
 
-        [HttpPost]
-        public async Task<IActionResult> CreateClient(
-            [FromBody] CreateClientRequest request)
+
+        // =========================================================
+        // GET LOGGED-IN CLIENT
+        // Client dashboard
+        // =========================================================
+
+        [HttpGet("me")]
+        [Authorize(Roles = "Client")]
+        public IActionResult GetMyClient()
         {
-            var validationError = _clientValidationService.Validate(request);
-
-            if (validationError != null)
+            try
             {
-                return BadRequest(validationError);
+                var userId =
+                    User.FindFirstValue(
+                        ClaimTypes.NameIdentifier);
+
+                if (string.IsNullOrEmpty(userId))
+                {
+                    return Unauthorized(new
+                    {
+                        message = "User ID was not found in the token."
+                    });
+                }
+
+                var client =
+                    _clientService.GetClientByUserId(userId);
+
+                return Ok(client);
             }
-
-            // Create user without a password.
-            // The client will create their own password.
-            var user = new User
+            catch (KeyNotFoundException ex)
             {
-                FullName = request.FullName,
-                IDNumber = request.IdNumber,
-                Email = request.Email,
-                PasswordHash = string.Empty,
-                CellNo = request.CellNo,
-                Address = request.Address,
-                Role = UserRole.Client
-            };
-
-            var createdUser = _userService.CreateUserWithoutPassword(user);
-
-            // Create client
-            var client = new Client
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
             {
-                UserId = createdUser.UserId
-            };
-
-            var createdClient = _clientService.CreateClient(client);
-
-            // Generate secure password setup token
-            var tokenBytes = RandomNumberGenerator.GetBytes(32);
-            var token = Convert.ToBase64String(tokenBytes)
-                .Replace("+", "-")
-                .Replace("/", "_")
-                .Replace("=", "");
-
-            // Token expires after 24 hours
-            var passwordSetupToken = new PasswordSetupToken
-            {
-                UserId = createdUser.UserId,
-                Token = token,
-                ExpiresAt = DateTime.UtcNow.AddHours(24),
-                Used = false
-            };
-
-            _context.PasswordSetupTokens.Add(passwordSetupToken);
-            await _context.SaveChangesAsync();
-
-            // Get frontend URL from configuration
-            var frontendUrl =
-                _configuration["FrontendUrl"]
-                ?? "http://localhost:3000";
-
-            // Password setup page
-            var setupLink =
-                $"{frontendUrl}/set-password?token={Uri.EscapeDataString(token)}";
-
-            // Send email
-            await _emailService.SendPasswordSetupEmailAsync(
-                createdUser.Email,
-                createdUser.FullName,
-                setupLink
-            );
-
-            return Ok(new
-            {
-                Client = createdClient,
-                Message = "Client created successfully. A password setup email has been sent."
-            });
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
         }
+
+
+        // =========================================================
+        // UPDATE CLIENT
+        // =========================================================
 
         [HttpPut("{clientId}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult UpdateClient(
             string clientId,
-            UpdateClientRequest request)
+            [FromBody] PolicyManagement.DTOs.Requests.UpdateClientRequest request)
         {
-            var client = _clientService.GetClientById(clientId);
-
-            if (client == null)
+            try
             {
-                return NotFound("Client not found.");
+                var result =
+                    _clientService.UpdateClient(
+                        clientId,
+                        request);
+
+                return Ok(new
+                {
+                    message = "Client updated successfully."
+                });
             }
-
-            var validationError =
-                _clientValidationService.ValidateUpdate(
-                    request,
-                    client.UserId
-                );
-
-            if (validationError != null)
+            catch (KeyNotFoundException ex)
             {
-                return BadRequest(validationError);
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
             }
-
-            _clientService.UpdateClient(clientId, request);
-
-            return Ok();
+            catch (Exception ex)
+            {
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        message = ex.Message
+                    });
+            }
         }
 
-        [HttpDelete("{clientId}")]
-        public IActionResult DeleteClient(string clientId)
-        {
-            var client = _clientService.GetClientById(clientId);
 
-            if (client == null)
-            {
-                return NotFound("Client not found.");
-            }
-
-            _clientService.DeleteClient(clientId);
-
-            return NoContent();
-        }
+        // =========================================================
+        // ACTIVATE CLIENT
+        // =========================================================
 
         [HttpPut("{clientId}/activate")]
-        public IActionResult ActivateClient(string clientId)
+        [Authorize(Roles = "Admin")]
+        public IActionResult ActivateClient(
+            string clientId)
         {
-            var client = _clientService.GetClientById(clientId);
-
-            if (client == null)
+            try
             {
-                return NotFound("Client not found.");
+                _clientService.ActivateClient(clientId);
+
+                return Ok(new
+                {
+                    message = "Client activated successfully."
+                });
             }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
 
-            _clientService.ActivateClient(clientId);
 
-            return NoContent();
+        // =========================================================
+        // DELETE CLIENT
+        // =========================================================
+
+        [HttpDelete("{clientId}")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult DeleteClient(
+            string clientId)
+        {
+            try
+            {
+                _clientService.DeleteClient(clientId);
+
+                return Ok(new
+                {
+                    message = "Client deleted successfully."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
         }
     }
 }
