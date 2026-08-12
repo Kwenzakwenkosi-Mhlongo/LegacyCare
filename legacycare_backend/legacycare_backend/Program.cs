@@ -98,12 +98,27 @@ builder.Services.AddScoped<IStaffValidationService, StaffValidationService>();
 builder.Services.AddHttpClient<IEmailService, EmailService>();
 
 
-
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    )
-);
+{
+    var connectionString =
+        builder.Configuration.GetConnectionString("DefaultConnection");
+
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException(
+            "DefaultConnection was not found."
+        );
+    }
+
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorNumbersToAdd: null
+        );
+    });
+});
 
 builder.Services.AddCors(options =>
 {
@@ -124,15 +139,13 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-   
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-    db.Database.Migrate();
 
     var passwordHasher = new PasswordHasher<User>();
 
     var admin = await db.Users
-        .FirstOrDefaultAsync(u => u.Email == "kwenza.mhlong@legacycare.com");
+        .FirstOrDefaultAsync(u =>
+            u.Email == "kwenza.mhlong@legacycare.com");
 
     if (admin == null)
     {
