@@ -28,17 +28,62 @@ jobs:
         working-directory: Web/legacycare_website
         run: npm ci
 
-      - name: Build Next.js application
+      - name: Build Next.js app
         working-directory: Web/legacycare_website
         run: npm run build
 
-      - name: Verify Next.js installation
+      - name: Check Next.js build
         working-directory: Web/legacycare_website
         run: |
-          echo "Checking Next.js installation..."
+          echo "Checking .next folder..."
+          ls -la .next
+          echo "Checking Next.js..."
           npm list next
-          test -f node_modules/.bin/next
-          echo "Next.js executable found."
+
+      - name: Prepare deployment package
+        run: |
+          mkdir -p deploy
+
+          cp -r Web/legacycare_website/.next deploy/.next
+          cp -r Web/legacycare_website/public deploy/public
+
+          cp Web/legacycare_website/package.json deploy/package.json
+          cp Web/legacycare_website/package-lock.json deploy/package-lock.json
+
+          if [ -f Web/legacycare_website/next.config.ts ]; then
+            cp Web/legacycare_website/next.config.ts deploy/next.config.ts
+          fi
+
+          if [ -f Web/legacycare_website/next.config.js ]; then
+            cp Web/legacycare_website/next.config.js deploy/next.config.js
+          fi
+
+          if [ -f Web/legacycare_website/next.config.mjs ]; then
+            cp Web/legacycare_website/next.config.mjs deploy/next.config.mjs
+          fi
+
+          echo "DEPLOYMENT PACKAGE:"
+          ls -la deploy
+
+      - name: Install production dependencies
+        working-directory: deploy
+        run: npm ci --omit=dev
+
+      - name: Verify deployment package
+        run: |
+          echo "Checking deployment package..."
+          test -d deploy/.next
+          test -f deploy/package.json
+          test -d deploy/node_modules
+          echo "Next.js production build exists."
+          echo "Production dependencies exist."
+          ls -la deploy/.next
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-app
+          path: deploy
 
   deploy:
     runs-on: ubuntu-latest
@@ -49,15 +94,20 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          node-version: '24.x'
-          cache: 'npm'
-          cache-dependency-path: Web/legacycare_website/package-lock.json
+          name: node-app
+          path: deploy
+
+      - name: Check downloaded package
+        run: |
+          echo "Downloaded deployment package:"
+          ls -la deploy
+          echo "Checking .next:"
+          ls -la deploy/.next
+          echo "Checking package.json:"
+          cat deploy/package.json
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -66,9 +116,9 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DE1A42DEAA8346A5B9A6240CC9DFF94B }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C5738A6BE0644D56A7DB71C7FED67D04 }}
 
-      - name: Deploy source to Azure Web App
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'legacycare-frontend5'
           slot-name: 'Production'
-          package: ./Web/legacycare_website
+          package: ./deploy
