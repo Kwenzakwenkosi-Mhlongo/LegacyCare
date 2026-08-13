@@ -138,42 +138,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    var passwordHasher = new PasswordHasher<User>();
-
-    var admin = await db.Users
-        .FirstOrDefaultAsync(u =>
-            u.Email == "kwenza.mhlong@legacycare.com");
-
-    if (admin == null)
-    {
-        admin = new User
-        {
-            UserId = "USR023",
-            FullName = "Kwenza Mhlong",
-            Email = "kwenza.mhlong@legacycare.com",
-            Role = UserRole.Admin,
-            IDNumber = "8201010000003",
-            CellNo = "0812340023",
-            Address = "Head Office",
-            DateCreated = DateTime.UtcNow,
-            IsActive = true,
-            LastLogin = null,
-            PasswordHash = string.Empty
-        };
-
-        admin.PasswordHash = passwordHasher.HashPassword(
-            admin,
-            "Password123!"
-        );
-
-        db.Users.Add(admin);
-        await db.SaveChangesAsync();
-    }
-}
 
 if (!app.Environment.IsDevelopment())
 {
