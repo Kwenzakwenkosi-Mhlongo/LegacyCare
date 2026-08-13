@@ -195,13 +195,4 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-
-if (app.Environment.IsDevelopment())
-{
-    app.Run("https://localhost:5001");
-}
-else
-{
-    app.Run();
-}
+app.Run();
