@@ -164,11 +164,9 @@ if (!app.Environment.IsDevelopment())
             context.Response.StatusCode = 500;
             context.Response.ContentType = "application/json";
 
-          await context.Response.WriteAsJsonAsync(new
+         await context.Response.WriteAsJsonAsync(new
 {
     message = "Internal server error",
-    error = exceptionHandler?.Error?.Message,
-    details = exceptionHandler?.Error?.InnerException?.Message,
     path = context.Request.Path
 });
         });
