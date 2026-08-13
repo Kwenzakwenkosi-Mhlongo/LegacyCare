@@ -197,4 +197,11 @@ app.MapControllerRoute(
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 
-app.Run($"http://0.0.0.0:{port}");
+if (app.Environment.IsDevelopment())
+{
+    app.Run("https://localhost:5001");
+}
+else
+{
+    app.Run();
+}
