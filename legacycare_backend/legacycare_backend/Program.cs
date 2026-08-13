@@ -138,7 +138,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-
+Console.WriteLine($"[DIAGNOSTIC] EnvironmentName = '{app.Environment.EnvironmentName}'");
 
 if (!app.Environment.IsDevelopment())
 {
