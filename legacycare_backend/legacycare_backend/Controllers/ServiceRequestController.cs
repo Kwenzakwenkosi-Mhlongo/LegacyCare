@@ -327,6 +327,161 @@ namespace PolicyManagement.Controllers
         }
 
         // ============================================================
+// CREATE APPOINTMENT
+// POST: /api/ServiceRequest
+// ============================================================
+
+[HttpPost]
+[Authorize(Roles = "Client")]
+public IActionResult Create(
+    [FromBody] CreateServiceRequestRequest request)
+{
+    try
+    {
+        if (request == null)
+        {
+            return BadRequest(
+                new
+                {
+                    message =
+                        "Booking information is required."
+                }
+            );
+        }
+
+        // --------------------------------------------------------
+        // Resolve logged-in client
+        // --------------------------------------------------------
+
+        var userId =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier
+            )
+            ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(
+                new
+                {
+                    message =
+                        "User identity could not be determined."
+                }
+            );
+        }
+
+        Console.WriteLine(
+            $"[ServiceRequestController] Create UserId: {userId}"
+        );
+
+        // --------------------------------------------------------
+        // Resolve Client
+        // --------------------------------------------------------
+
+        var client =
+            _clientService.GetClientByUserId(
+                userId
+            );
+
+        if (
+            client == null ||
+            string.IsNullOrWhiteSpace(
+                client.ClientId
+            )
+        )
+        {
+            return NotFound(
+                new
+                {
+                    message =
+                        "Client record could not be found for the logged-in user."
+                }
+            );
+        }
+
+        Console.WriteLine(
+            $"[ServiceRequestController] Create ClientId: {client.ClientId}"
+        );
+
+        // --------------------------------------------------------
+        // Create
+        // --------------------------------------------------------
+
+        var created =
+            _serviceRequestService.Create(
+                client.ClientId,
+                request
+            );
+
+        Console.WriteLine(
+            $"[ServiceRequestController] Created ServiceRequest: {created.ServiceRequestId}"
+        );
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new
+            {
+                id = created.ServiceRequestId
+            },
+            created
+        );
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(
+            new
+            {
+                message = ex.Message
+            }
+        );
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return Unauthorized(
+            new
+            {
+                message = ex.Message
+            }
+        );
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(
+            "========================================"
+        );
+
+        Console.WriteLine(
+            "[ServiceRequestController] CREATE ERROR"
+        );
+
+        Console.WriteLine(
+            $"Message: {ex.Message}"
+        );
+
+        Console.WriteLine(
+            $"Inner: {ex.InnerException?.Message}"
+        );
+
+        Console.WriteLine(
+            $"StackTrace: {ex.StackTrace}"
+        );
+
+        Console.WriteLine(
+            "========================================"
+        );
+
+        return StatusCode(
+            500,
+            new
+            {
+                message =
+                    "Internal server error."
+            }
+        );
+    }
+}
+
+        // ============================================================
         // DELETE
         // DELETE: /api/ServiceRequest/{id}
         // ============================================================

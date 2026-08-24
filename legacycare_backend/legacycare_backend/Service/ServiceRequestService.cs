@@ -58,13 +58,242 @@ namespace PolicyManagement.Service.ServiceRequestManagement
         }
 
         // ============================================================
+        // CREATE
+        //
+        // Client creates a new Appointment service request.
+        // ============================================================
+
+        public ServiceRequest Create(
+            string clientId,
+            CreateServiceRequestRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                throw new UnauthorizedAccessException(
+                    "Client identity could not be determined."
+                );
+            }
+
+            if (request == null)
+            {
+                throw new ArgumentNullException(
+                    nameof(request)
+                );
+            }
+
+            // ========================================================
+            // REQUEST TYPE
+            // ========================================================
+
+            var requestType =
+                (request.RequestType ?? "")
+                    .Trim();
+
+            if (string.IsNullOrWhiteSpace(requestType))
+            {
+                throw new InvalidOperationException(
+                    "Request type is required."
+                );
+            }
+
+            var normalizedType =
+                requestType.ToLower();
+
+            var isAppointment =
+                normalizedType == "appointment" ||
+                normalizedType == "appointment request";
+
+            if (!isAppointment)
+            {
+                throw new InvalidOperationException(
+                    "Only appointment requests can be created through this endpoint."
+                );
+            }
+
+            // ========================================================
+            // DATE / TIME
+            // ========================================================
+
+            if (!request.AppointmentDateTime.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "Appointment date and time are required."
+                );
+            }
+
+            var appointmentDateTime =
+                request.AppointmentDateTime.Value;
+
+            if (appointmentDateTime <= DateTime.Now)
+            {
+                throw new InvalidOperationException(
+                    "Appointment date and time must be in the future."
+                );
+            }
+
+            // ========================================================
+            // 24-HOUR RULE
+            // ========================================================
+
+            var hoursRemaining =
+                (appointmentDateTime - DateTime.Now)
+                    .TotalHours;
+
+            if (hoursRemaining <= 24)
+            {
+                throw new InvalidOperationException(
+                    "Appointments must be booked more than 24 hours in advance."
+                );
+            }
+
+            // ========================================================
+            // BRANCH
+            // ========================================================
+
+            string? branchId = null;
+
+            if (!string.IsNullOrWhiteSpace(request.BranchId))
+            {
+                branchId = request.BranchId.Trim();
+
+                var branchExists =
+                    _context.Branch.Any(x =>
+                        x.BranchId == branchId &&
+                        x.IsActive);
+
+                if (!branchExists)
+                {
+                    throw new InvalidOperationException(
+                        "The selected branch does not exist or is inactive."
+                    );
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "A preferred branch is required."
+                );
+            }
+
+            // ========================================================
+            // PRIORITY
+            // ========================================================
+
+            var priority =
+                string.IsNullOrWhiteSpace(request.Priority)
+                    ? "Normal"
+                    : request.Priority.Trim();
+
+            if (
+                !priority.Equals(
+                    "Normal",
+                    StringComparison.OrdinalIgnoreCase
+                )
+                &&
+                !priority.Equals(
+                    "High",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                throw new InvalidOperationException(
+                    "Invalid request priority."
+                );
+            }
+
+            // ========================================================
+            // HIGH PRIORITY FEE
+            // ========================================================
+
+            decimal additionalFee = 0;
+
+            if (
+                priority.Equals(
+                    "High",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                if (!request.AcceptPriorityFee)
+                {
+                    throw new InvalidOperationException(
+                        "Please accept the R100.00 High Priority service fee."
+                    );
+                }
+
+                additionalFee = 100;
+            }
+
+            // ========================================================
+            // DESCRIPTION
+            // ========================================================
+
+            var description =
+                string.IsNullOrWhiteSpace(request.Description)
+                    ? null
+                    : request.Description.Trim();
+
+            // ========================================================
+            // CREATE ENTITY
+            // ========================================================
+
+            var serviceRequest =
+                new ServiceRequest
+                {
+                    ClientId = clientId,
+
+                    BranchId = branchId,
+
+                    RequestType = "Appointment",
+
+                    Status = "Pending",
+
+                    Priority =
+                        priority.Equals(
+                            "High",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                            ? "High"
+                            : "Normal",
+
+                    Description = description,
+
+                    AppointmentDateTime =
+                        appointmentDateTime,
+
+                    AdditionalFee =
+                        additionalFee,
+
+                    CreatedDate =
+                        DateTime.Now,
+
+                    UpdatedDate = null
+                };
+
+            _context.ServiceRequests.Add(
+                serviceRequest
+            );
+
+            _context.SaveChanges();
+
+            // ========================================================
+            // RETURN COMPLETE REQUEST
+            // ========================================================
+
+            return GetById(
+                serviceRequest.ServiceRequestId
+            )!;
+        }
+
+        // ============================================================
         // UPDATE
         //
-        // Editable request types:
-        // 1. Appointment
-        // 2. Funeral
+        // Editable:
+        // - Appointment
+        // - Funeral
         //
-        // Existing scheduled date/time must be MORE than 24 hours away.
+        // Existing appointment/funeral must have MORE than 24 hours
+        // remaining before it can be changed.
         // ============================================================
 
         public ServiceRequest Update(
@@ -72,18 +301,20 @@ namespace PolicyManagement.Service.ServiceRequestManagement
             string clientId,
             UpdateServiceRequestDto request)
         {
-            var serviceRequest = _context.ServiceRequests
-                .Include(x => x.Branch)
-                .Include(x => x.Client)
-                .Include(x => x.FuneralRequest)
-                .FirstOrDefault(x =>
-                    x.ServiceRequestId == id &&
-                    x.ClientId == clientId);
+            var serviceRequest =
+                _context.ServiceRequests
+                    .Include(x => x.Branch)
+                    .Include(x => x.Client)
+                    .Include(x => x.FuneralRequest)
+                    .FirstOrDefault(x =>
+                        x.ServiceRequestId == id &&
+                        x.ClientId == clientId);
 
             if (serviceRequest == null)
             {
                 throw new KeyNotFoundException(
-                    "Service request was not found.");
+                    "Service request was not found."
+                );
             }
 
             // ========================================================
@@ -105,18 +336,15 @@ namespace PolicyManagement.Service.ServiceRequestManagement
                 requestType == "funeral request" ||
                 requestType == "funeralservice";
 
-            // ========================================================
-            // ONLY APPOINTMENT AND FUNERAL
-            // ========================================================
-
             if (!isAppointment && !isFuneral)
             {
                 throw new InvalidOperationException(
-                    "Only appointment and funeral requests can be edited.");
+                    "Only appointment and funeral requests can be edited."
+                );
             }
 
             // ========================================================
-            // STATUS LOCK
+            // STATUS
             // ========================================================
 
             var status =
@@ -127,16 +355,18 @@ namespace PolicyManagement.Service.ServiceRequestManagement
             if (
                 status == "completed" ||
                 status == "rejected" ||
-                status == "cancelled")
+                status == "cancelled"
+            )
             {
                 throw new InvalidOperationException(
                     isFuneral
                         ? "This funeral request cannot be changed because its status does not allow editing."
-                        : "This appointment cannot be changed because its status does not allow editing.");
+                        : "This appointment cannot be changed because its status does not allow editing."
+                );
             }
 
             // ========================================================
-            // NEW DATE/TIME REQUIRED
+            // NEW DATE/TIME
             // ========================================================
 
             if (!request.AppointmentDateTime.HasValue)
@@ -144,33 +374,24 @@ namespace PolicyManagement.Service.ServiceRequestManagement
                 throw new InvalidOperationException(
                     isFuneral
                         ? "Funeral date and time are required."
-                        : "Appointment date and time are required.");
+                        : "Appointment date and time are required."
+                );
             }
 
             var newDateTime =
                 request.AppointmentDateTime.Value;
-
-            // ========================================================
-            // NEW DATE MUST BE FUTURE
-            // ========================================================
 
             if (newDateTime <= DateTime.Now)
             {
                 throw new InvalidOperationException(
                     isFuneral
                         ? "Funeral date and time must be in the future."
-                        : "Appointment date and time must be in the future.");
+                        : "Appointment date and time must be in the future."
+                );
             }
 
             // ========================================================
             // EXISTING DATE/TIME
-            //
-            // IMPORTANT:
-            // The 24-hour rule is based on the EXISTING scheduled
-            // date/time.
-            //
-            // This prevents someone from moving a funeral that is
-            // already inside the 24-hour lock period to a later date.
             // ========================================================
 
             if (!serviceRequest.AppointmentDateTime.HasValue)
@@ -178,21 +399,24 @@ namespace PolicyManagement.Service.ServiceRequestManagement
                 throw new InvalidOperationException(
                     isFuneral
                         ? "The existing funeral date and time could not be found."
-                        : "The existing appointment date and time could not be found.");
+                        : "The existing appointment date and time could not be found."
+                );
             }
 
             var existingDateTime =
                 serviceRequest.AppointmentDateTime.Value;
 
             var hoursRemaining =
-                (existingDateTime - DateTime.Now).TotalHours;
+                (existingDateTime - DateTime.Now)
+                    .TotalHours;
 
             if (hoursRemaining <= 24)
             {
                 throw new InvalidOperationException(
                     isFuneral
                         ? "This funeral request cannot be changed because 24 hours or less remain before the funeral."
-                        : "This appointment cannot be changed because 24 hours or less remain before the appointment.");
+                        : "This appointment cannot be changed because 24 hours or less remain before the appointment."
+                );
             }
 
             // ========================================================
@@ -201,19 +425,23 @@ namespace PolicyManagement.Service.ServiceRequestManagement
 
             if (!string.IsNullOrWhiteSpace(request.BranchId))
             {
+                var branchId =
+                    request.BranchId.Trim();
+
                 var branchExists =
                     _context.Branch.Any(x =>
-                        x.BranchId == request.BranchId &&
+                        x.BranchId == branchId &&
                         x.IsActive);
 
                 if (!branchExists)
                 {
                     throw new InvalidOperationException(
-                        "The selected branch does not exist or is inactive.");
+                        "The selected branch does not exist or is inactive."
+                    );
                 }
 
                 serviceRequest.BranchId =
-                    request.BranchId.Trim();
+                    branchId;
             }
 
             // ========================================================
@@ -221,12 +449,14 @@ namespace PolicyManagement.Service.ServiceRequestManagement
             // ========================================================
 
             serviceRequest.Description =
-                string.IsNullOrWhiteSpace(request.Description)
+                string.IsNullOrWhiteSpace(
+                    request.Description
+                )
                     ? null
                     : request.Description.Trim();
 
             // ========================================================
-            // UPDATE DATE/TIME
+            // DATE/TIME
             // ========================================================
 
             serviceRequest.AppointmentDateTime =
@@ -240,7 +470,8 @@ namespace PolicyManagement.Service.ServiceRequestManagement
                 DateTime.Now;
 
             _context.ServiceRequests.Update(
-                serviceRequest);
+                serviceRequest
+            );
 
             _context.SaveChanges();
 
@@ -264,11 +495,13 @@ namespace PolicyManagement.Service.ServiceRequestManagement
             if (serviceRequest == null)
             {
                 throw new KeyNotFoundException(
-                    "Service request was not found.");
+                    "Service request was not found."
+                );
             }
 
             _context.ServiceRequests.Remove(
-                serviceRequest);
+                serviceRequest
+            );
 
             _context.SaveChanges();
         }

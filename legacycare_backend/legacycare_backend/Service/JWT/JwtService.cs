@@ -15,76 +15,144 @@ namespace PolicyManagement.Service.JWT
             _configuration = configuration;
         }
 
-        // ============================================================
-        // IMPORTANT CHANGE:
-        // Added an optional clientId parameter. When the logged-in
-        // user is a Client, their ClientId (e.g. "CLN006") is embedded
-        // as its own claim. This is what ServiceRequestController's
-        // GetCurrentClientId() looks for FIRST:
-        //
-        //   User.FindFirstValue("ClientId")
-        //
-        // Without this, it fell back to NameIdentifier (the User ID,
-        // e.g. "USR006"), which never matches ServiceRequest.ClientId
-        // (e.g. "CLN006") — causing every client request list to come
-        // back empty even though everything else was working.
-        // ============================================================
-
         public (string Token, DateTime Expiration) GenerateToken(
             User user,
             string? clientId = null)
         {
-            var key = _configuration["JwtSettings:Secret"] ??
-                      _configuration["Jwt:Key"] ??
-                      "your-super-secret-key-here-min-32-characters-long";
+            // ========================================================
+            // JWT SETTINGS
+            // ========================================================
 
-            var issuer = _configuration["JwtSettings:Issuer"] ??
-                         _configuration["Jwt:Issuer"] ??
-                         "LegacyCareAPI";
+            var key =
+                _configuration["JwtSettings:Secret"]
+                ?? _configuration["Jwt:Key"];
 
-            var audience = _configuration["JwtSettings:Audience"] ??
-                           _configuration["Jwt:Audience"] ??
-                           "LegacyCareClient";
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new InvalidOperationException(
+                    "JWT secret is missing. Configure 'JwtSettings:Secret' or 'Jwt:Key'."
+                );
+            }
 
-            var expiryMinutes = Convert.ToDouble(
-                _configuration["JwtSettings:ExpiryMinutes"] ??
-                _configuration["Jwt:ExpiryMinutes"] ??
-                "60"
-            );
+            if (Encoding.UTF8.GetBytes(key).Length < 32)
+            {
+                throw new InvalidOperationException(
+                    "JWT secret must be at least 32 bytes long."
+                );
+            }
 
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            var issuer =
+                _configuration["JwtSettings:Issuer"]
+                ?? _configuration["Jwt:Issuer"]
+                ?? "LegacyCareAPI";
+
+            var audience =
+                _configuration["JwtSettings:Audience"]
+                ?? _configuration["Jwt:Audience"]
+                ?? "LegacyCareClient";
+
+            var expiryMinutes =
+                Convert.ToDouble(
+                    _configuration["JwtSettings:ExpiryMinutes"]
+                    ?? _configuration["Jwt:ExpiryMinutes"]
+                    ?? "60"
+                );
+
+            // ========================================================
+            // SIGNING KEY
+            // ========================================================
+
+            var securityKey =
+                new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(key)
+                );
+
+            var credentials =
+                new SigningCredentials(
+                    securityKey,
+                    SecurityAlgorithms.HmacSha256
+                );
+
+            // ========================================================
+            // CLAIMS
+            // ========================================================
 
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, user.UserId),
-                new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(
+                    ClaimTypes.NameIdentifier,
+                    user.UserId
+                ),
+
+                new Claim(
+                    ClaimTypes.Name,
+                    user.FullName
+                ),
+
+                new Claim(
+                    ClaimTypes.Email,
+                    user.Email
+                ),
+
+                new Claim(
+                    ClaimTypes.Role,
+                    user.Role.ToString()
+                )
             };
 
             // ========================================================
-            // ADDED: embed ClientId when present.
+            // CLIENT ID
+            //
+            // Important for Client users.
+            // Example:
+            // UserId   = USR006
+            // ClientId = CLN006
             // ========================================================
 
             if (!string.IsNullOrWhiteSpace(clientId))
             {
-                claims.Add(new Claim("ClientId", clientId));
+                claims.Add(
+                    new Claim(
+                        "ClientId",
+                        clientId
+                    )
+                );
             }
 
-            var expiration = DateTime.UtcNow.AddMinutes(expiryMinutes);
+            // ========================================================
+            // EXPIRATION
+            // ========================================================
 
-            var token = new JwtSecurityToken(
-                issuer: issuer,
-                audience: audience,
-                claims: claims,
-                expires: expiration,
-                signingCredentials: credentials
+            var expiration =
+                DateTime.UtcNow.AddMinutes(
+                    expiryMinutes
+                );
+
+            // ========================================================
+            // CREATE TOKEN
+            // ========================================================
+
+            var token =
+                new JwtSecurityToken(
+                    issuer: issuer,
+                    audience: audience,
+                    claims: claims,
+                    expires: expiration,
+                    signingCredentials: credentials
+                );
+
+            // ========================================================
+            // SERIALIZE TOKEN
+            // ========================================================
+
+            var tokenString =
+                new JwtSecurityTokenHandler()
+                    .WriteToken(token);
+
+            return (
+                tokenString,
+                expiration
             );
-
-            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
-
-            return (tokenString, expiration);
         }
     }
 }

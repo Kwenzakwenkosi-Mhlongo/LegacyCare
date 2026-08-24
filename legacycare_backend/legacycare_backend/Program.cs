@@ -27,6 +27,7 @@ Environment.SetEnvironmentVariable(
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 // =====================================================
 // CONFIGURATION
 // =====================================================
@@ -74,13 +75,13 @@ builder.Services
 
 // =====================================================
 // SWAGGER
+// Swashbuckle.AspNetCore 10.2.3
 // =====================================================
 
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(options =>
 {
-    // JWT Bearer authentication
     options.AddSecurityDefinition(
         "Bearer",
         new Microsoft.OpenApi.OpenApiSecurityScheme
@@ -91,11 +92,10 @@ builder.Services.AddSwaggerGen(options =>
             BearerFormat = "JWT",
             In = Microsoft.OpenApi.ParameterLocation.Header,
             Description =
-                "Enter your JWT token. Do not include the word 'Bearer'."
+                "Enter your JWT token. Do NOT include the word 'Bearer'."
         }
     );
 
-    // Tell Swagger that endpoints can use JWT authentication
     options.AddSecurityRequirement(document =>
         new Microsoft.OpenApi.OpenApiSecurityRequirement
         {
@@ -119,10 +119,62 @@ var jwtSettings =
 
 var secret =
     jwtSettings["Secret"]
-    ?? builder.Configuration["Jwt:Key"]
-    ?? "your-super-secret-key-here-min-32-characters-long";
+    ?? builder.Configuration["Jwt:Key"];
 
-var key = Encoding.UTF8.GetBytes(secret);
+var issuer =
+    jwtSettings["Issuer"]
+    ?? builder.Configuration["Jwt:Issuer"]
+    ?? "LegacyCareAPI";
+
+var audience =
+    jwtSettings["Audience"]
+    ?? builder.Configuration["Jwt:Audience"]
+    ?? "LegacyCareClient";
+
+
+// =====================================================
+// VALIDATE JWT SECRET
+// =====================================================
+
+if (string.IsNullOrWhiteSpace(secret))
+{
+    throw new InvalidOperationException(
+        "JWT secret is missing. Configure 'JwtSettings:Secret' or 'Jwt:Key' in appsettings.json, appsettings.Production.json, or Azure Application Settings."
+    );
+}
+
+if (Encoding.UTF8.GetByteCount(secret) < 32)
+{
+    throw new InvalidOperationException(
+        "JWT secret must be at least 32 bytes long."
+    );
+}
+
+var key =
+    new SymmetricSecurityKey(
+        Encoding.UTF8.GetBytes(secret)
+    );
+
+
+// =====================================================
+// JWT DIAGNOSTICS
+// =====================================================
+
+Console.WriteLine(
+    $"[DIAGNOSTIC] JwtSettings:Secret exists = {!string.IsNullOrWhiteSpace(jwtSettings["Secret"])}"
+);
+
+Console.WriteLine(
+    $"[DIAGNOSTIC] Jwt:Key exists = {!string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"])}"
+);
+
+Console.WriteLine(
+    $"[DIAGNOSTIC] JwtSettings:Issuer = {issuer}"
+);
+
+Console.WriteLine(
+    $"[DIAGNOSTIC] JwtSettings:Audience = {audience}"
+);
 
 
 // =====================================================
@@ -148,19 +200,63 @@ builder.Services
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
 
-                ValidIssuer =
-                    jwtSettings["Issuer"]
-                    ?? builder.Configuration["Jwt:Issuer"],
+                ValidIssuer = issuer,
+                ValidAudience = audience,
 
-                ValidAudience =
-                    jwtSettings["Audience"]
-                    ?? builder.Configuration["Jwt:Audience"],
-
-                IssuerSigningKey =
-                    new SymmetricSecurityKey(key),
+                IssuerSigningKey = key,
 
                 ClockSkew = TimeSpan.Zero
             };
+
+        // =====================================================
+        // JWT DIAGNOSTIC EVENTS
+        // =====================================================
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine(
+                    $"[JWT ERROR] Authentication failed: {context.Exception.Message}"
+                );
+
+                return Task.CompletedTask;
+            },
+
+            OnTokenValidated = context =>
+            {
+                var userId =
+                    context.Principal?
+                        .FindFirst(
+                            System.Security.Claims.ClaimTypes.NameIdentifier
+                        )?.Value;
+
+                var clientId =
+                    context.Principal?
+                        .FindFirst("ClientId")?.Value;
+
+                var role =
+                    context.Principal?
+                        .FindFirst(
+                            System.Security.Claims.ClaimTypes.Role
+                        )?.Value;
+
+                Console.WriteLine(
+                    $"[JWT SUCCESS] UserId={userId}, ClientId={clientId}, Role={role}"
+                );
+
+                return Task.CompletedTask;
+            },
+
+            OnChallenge = context =>
+            {
+                Console.WriteLine(
+                    $"[JWT CHALLENGE] Authorization failed for {context.Request.Method} {context.Request.Path}"
+                );
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 
@@ -179,83 +275,144 @@ builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 
-builder.Services.AddScoped<IBookingRestrictionService, BookingRestrictionService>();
+builder.Services.AddScoped<
+    IBookingRestrictionService,
+    BookingRestrictionService
+>();
 
-builder.Services.AddScoped<IPolicyService, PolicyService>();
+builder.Services.AddScoped<
+    IPolicyService,
+    PolicyService
+>();
 
-builder.Services.AddScoped<IPackageService, PackageService>();
+builder.Services.AddScoped<
+    IPackageService,
+    PackageService
+>();
 
-builder.Services.AddScoped<IBeneficiaryService, BeneficiaryService>();
+builder.Services.AddScoped<
+    IBeneficiaryService,
+    BeneficiaryService
+>();
 
-builder.Services.AddScoped<IBeneficiaryRequestService, BeneficiaryRequestService>();
+builder.Services.AddScoped<
+    IBeneficiaryRequestService,
+    BeneficiaryRequestService
+>();
 
-builder.Services.AddScoped<IPackageChangeRequestService, PackageChangeRequestService>();
+builder.Services.AddScoped<
+    IPackageChangeRequestService,
+    PackageChangeRequestService
+>();
 
-builder.Services.AddScoped<IStorageService, StorageService>();
+builder.Services.AddScoped<
+    IStorageService,
+    StorageService
+>();
 
-builder.Services.AddScoped<IDeceasedService, DeceasedService>();
+builder.Services.AddScoped<
+    IDeceasedService,
+    DeceasedService
+>();
 
-builder.Services.AddScoped<IDeceasedStorageService, DeceasedStorageService>();
+builder.Services.AddScoped<
+    IDeceasedStorageService,
+    DeceasedStorageService
+>();
 
-builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<
+    IEventService,
+    EventService
+>();
 
-builder.Services.AddScoped<ITaskService, TaskService>();
+builder.Services.AddScoped<
+    ITaskService,
+    TaskService
+>();
 
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<
+    IPaymentService,
+    PaymentService
+>();
 
-builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
+builder.Services.AddScoped<
+    IPaymentMethodService,
+    PaymentMethodService
+>();
 
-builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<
+    IInvoiceService,
+    InvoiceService
+>();
 
 builder.Services.AddScoped<JwtService>();
 
 builder.Services.AddScoped<AuthenticationService>();
 
-builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<
+    IPasswordHasher<User>,
+    PasswordHasher<User>
+>();
 
-builder.Services.AddScoped<IClientService, ClientService>();
+builder.Services.AddScoped<
+    IClientService,
+    ClientService
+>();
 
-builder.Services.AddScoped<IStaffService, StaffService>();
+builder.Services.AddScoped<
+    IStaffService,
+    StaffService
+>();
 
-builder.Services.AddScoped<IClientValidationService, ClientValidationService>();
+builder.Services.AddScoped<
+    IClientValidationService,
+    ClientValidationService
+>();
 
-builder.Services.AddScoped<IStaffValidationService, StaffValidationService>();
+builder.Services.AddScoped<
+    IStaffValidationService,
+    StaffValidationService
+>();
 
 builder.Services.AddScoped<
     IFuneralRequestService,
-    FuneralRequestService>();
+    FuneralRequestService
+>();
 
 builder.Services.AddScoped<
     IDeathNotificationService,
-    DeathNotificationService>();
+    DeathNotificationService
+>();
 
-    builder.Services.AddScoped<
+builder.Services.AddScoped<
     IFuneralStaffDeploymentService,
-    FuneralStaffDeploymentService>();
+    FuneralStaffDeploymentService
+>();
 
-// -----------------------------------------------------
-// Previously missing registration.
-// Without this, DI cannot construct ServiceRequestController,
-// causing every /api/ServiceRequest/* route to fail with a 500
-// ("Unable to resolve service for type IServiceRequestService").
-// -----------------------------------------------------
 builder.Services.AddScoped<
     IServiceRequestService,
-    ServiceRequestService>();
+    ServiceRequestService
+>();
 
 
 // =====================================================
 // DASHBOARD SERVICE
 // =====================================================
 
-builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<
+    IDashboardService,
+    DashboardService
+>();
 
 
 // =====================================================
 // EMAIL SERVICE
 // =====================================================
 
-builder.Services.AddHttpClient<IEmailService, EmailService>();
+builder.Services.AddHttpClient<
+    IEmailService,
+    EmailService
+>();
 
 
 // =====================================================
@@ -314,7 +471,7 @@ builder.Services.AddCors(options =>
 
 
 // =====================================================
-// BUILD APP
+// BUILD APPLICATION
 // =====================================================
 
 var app = builder.Build();
@@ -346,7 +503,9 @@ if (!app.Environment.IsDevelopment())
 
             var logger =
                 context.RequestServices
-                    .GetRequiredService<ILogger<Program>>();
+                    .GetRequiredService<
+                        ILogger<Program>
+                    >();
 
             if (exceptionHandler?.Error != null)
             {
@@ -375,28 +534,27 @@ if (!app.Environment.IsDevelopment())
 
     app.UseHsts();
 }
-else
-{
-    // =================================================
-    // SWAGGER
-    // =================================================
 
-    app.UseSwagger();
 
-    app.UseSwaggerUI();
-}
+// =====================================================
+// SWAGGER
+// =====================================================
+
+app.UseSwagger();
+
+app.UseSwaggerUI();
 
 
 // =====================================================
 // HTTPS
 // =====================================================
 
-// HTTPS is handled by hosting environment
+// HTTPS is handled by the hosting environment.
 // app.UseHttpsRedirection();
 
 
 // =====================================================
-// HTTP PIPELINE
+// ROUTING
 // =====================================================
 
 app.UseRouting();
@@ -431,7 +589,7 @@ app.MapStaticAssets();
 
 
 // =====================================================
-// CONTROLLERS
+// API CONTROLLERS
 // =====================================================
 
 app.MapControllers();

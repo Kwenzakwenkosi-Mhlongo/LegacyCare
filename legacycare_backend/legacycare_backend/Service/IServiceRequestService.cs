@@ -5,45 +5,30 @@ namespace PolicyManagement.Service.ServiceRequestManagement
 {
     public interface IServiceRequestService
     {
-        // ============================================================
-        // GET ALL
-        // ============================================================
-
         IEnumerable<ServiceRequest> GetAll();
 
-        // ============================================================
-        // GET BY CLIENT
-        // ============================================================
+        IEnumerable<ServiceRequest> GetByClient(
+            string clientId
+        );
 
-        IEnumerable<ServiceRequest> GetByClient(string clientId);
+        ServiceRequest? GetById(
+            int id
+        );
 
-        // ============================================================
-        // GET BY ID
-        // ============================================================
-
-        ServiceRequest? GetById(int id);
-
-        // ============================================================
-        // UPDATE
-        //
-        // Used for:
-        // 1. Appointment
-        // 2. Funeral
-        //
-        // Both are editable only when more than 24 hours remain.
-        // ============================================================
+        ServiceRequest Create(
+            string clientId,
+            CreateServiceRequestRequest request
+        );
 
         ServiceRequest Update(
             int id,
             string clientId,
-            UpdateServiceRequestDto request);
-
-        // ============================================================
-        // DELETE
-        // ============================================================
+            UpdateServiceRequestDto request
+        );
 
         void Delete(
             int id,
-            string clientId);
+            string clientId
+        );
     }
 }
