@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -104,7 +105,7 @@ export default function DeathNotificationDetailsPage() {
   const getApiBase = () => {
     return (
       process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:5224/api"
+      "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api"
     );
   };
 
@@ -215,14 +216,6 @@ export default function DeathNotificationDetailsPage() {
         return;
       }
 
-      /*
-       * IMPORTANT:
-       *
-       * Open the window BEFORE awaiting fetch().
-       *
-       * This prevents browsers from treating the new tab
-       * as a popup and blocking it.
-       */
       documentWindow = window.open(
         "",
         "_blank"
@@ -236,10 +229,6 @@ export default function DeathNotificationDetailsPage() {
         return;
       }
 
-      /*
-       * Show temporary loading content while the
-       * authenticated document is being downloaded.
-       */
       documentWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -317,9 +306,6 @@ export default function DeathNotificationDetailsPage() {
         );
       }
 
-      /*
-       * Convert the response into a browser Blob.
-       */
       const blob =
         await response.blob();
 
@@ -337,22 +323,12 @@ export default function DeathNotificationDetailsPage() {
         );
       }
 
-      /*
-       * Create a temporary URL for the document.
-       */
       const blobUrl =
         window.URL.createObjectURL(blob);
 
-      /*
-       * Navigate the already-opened tab to the document.
-       */
       documentWindow.location.href =
         blobUrl;
 
-      /*
-       * Keep the object URL alive long enough for
-       * the browser to load the document.
-       */
       setTimeout(() => {
         window.URL.revokeObjectURL(
           blobUrl
@@ -368,7 +344,10 @@ export default function DeathNotificationDetailsPage() {
         err
       );
 
-      if (documentWindow && !documentWindow.closed) {
+      if (
+        documentWindow &&
+        !documentWindow.closed
+      ) {
         documentWindow.close();
       }
 
@@ -388,13 +367,6 @@ export default function DeathNotificationDetailsPage() {
     if (!notification) {
       return;
     }
-
-    /*
-     * IMPORTANT:
-     *
-     * The backend validates the beneficiary.
-     * The frontend does not change the beneficiary status.
-     */
 
     const confirmed = window.confirm(
       "Are you sure you want to approve this death notification?\n\n" +
@@ -587,11 +559,6 @@ export default function DeathNotificationDetailsPage() {
       return "—";
     }
 
-    /*
-     * Handle SQL Server's default DateTime value.
-     *
-     * 0001-01-01 means no meaningful DOB was supplied.
-     */
     if (
       value.startsWith(
         "0001-01-01"
@@ -738,9 +705,7 @@ export default function DeathNotificationDetailsPage() {
   return (
     <div className="space-y-6">
 
-      {/* =====================================================
-          BACK
-      ===================================================== */}
+      {/* BACK */}
 
       <Link
         href="/admin/death-notifications"
@@ -749,9 +714,7 @@ export default function DeathNotificationDetailsPage() {
         ← Back to Death Notifications
       </Link>
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
@@ -778,9 +741,7 @@ export default function DeathNotificationDetailsPage() {
 
       </div>
 
-      {/* =====================================================
-          SUCCESS MESSAGE
-      ===================================================== */}
+      {/* SUCCESS MESSAGE */}
 
       {actionMessage && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -788,9 +749,7 @@ export default function DeathNotificationDetailsPage() {
         </div>
       )}
 
-      {/* =====================================================
-          ERROR MESSAGE
-      ===================================================== */}
+      {/* ERROR MESSAGE */}
 
       {actionError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -798,9 +757,7 @@ export default function DeathNotificationDetailsPage() {
         </div>
       )}
 
-      {/* =====================================================
-          REQUEST INFORMATION
-      ===================================================== */}
+      {/* REQUEST INFORMATION */}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
 
@@ -814,10 +771,7 @@ export default function DeathNotificationDetailsPage() {
 
         <div className="grid gap-6 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3">
 
-          {/* REQUEST NUMBER */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Request Number
             </p>
@@ -826,13 +780,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.requestNumber ||
                 "—"}
             </p>
-
           </div>
 
-          {/* NOTIFICATION ID */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Notification ID
             </p>
@@ -840,13 +790,9 @@ export default function DeathNotificationDetailsPage() {
             <p className="mt-1 break-all text-sm text-gray-700">
               {notification.deathNotificationId}
             </p>
-
           </div>
 
-          {/* POLICY ID */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Policy ID
             </p>
@@ -855,13 +801,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.policyId ||
                 "—"}
             </p>
-
           </div>
 
-          {/* DATE OF DEATH */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Date of Death
             </p>
@@ -871,13 +813,9 @@ export default function DeathNotificationDetailsPage() {
                 notification.dateOfDeath
               )}
             </p>
-
           </div>
 
-          {/* DATE REPORTED */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Date Reported
             </p>
@@ -887,13 +825,9 @@ export default function DeathNotificationDetailsPage() {
                 notification.dateReported
               )}
             </p>
-
           </div>
 
-          {/* BRANCH */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Branch
             </p>
@@ -903,15 +837,12 @@ export default function DeathNotificationDetailsPage() {
                 notification.branchId ||
                 "—"}
             </p>
-
           </div>
 
         </div>
       </div>
 
-      {/* =====================================================
-          BENEFICIARY INFORMATION
-      ===================================================== */}
+      {/* BENEFICIARY INFORMATION */}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
 
@@ -925,10 +856,7 @@ export default function DeathNotificationDetailsPage() {
 
         <div className="grid gap-6 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3">
 
-          {/* BENEFICIARY ID */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Beneficiary ID
             </p>
@@ -938,13 +866,9 @@ export default function DeathNotificationDetailsPage() {
                 notification.beneficiaryId ||
                 "—"}
             </p>
-
           </div>
 
-          {/* FULL NAME */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Full Name
             </p>
@@ -953,13 +877,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.beneficiary?.fullName ||
                 "—"}
             </p>
-
           </div>
 
-          {/* ID NUMBER */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               ID Number
             </p>
@@ -968,13 +888,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.beneficiary?.idNumber ||
                 "—"}
             </p>
-
           </div>
 
-          {/* DATE OF BIRTH */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Date of Birth
             </p>
@@ -984,13 +900,9 @@ export default function DeathNotificationDetailsPage() {
                 notification.beneficiary?.dateOfBirth
               )}
             </p>
-
           </div>
 
-          {/* GENDER */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Gender
             </p>
@@ -999,13 +911,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.beneficiary?.gender ||
                 "—"}
             </p>
-
           </div>
 
-          {/* RELATIONSHIP */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Relationship
             </p>
@@ -1014,13 +922,9 @@ export default function DeathNotificationDetailsPage() {
               {notification.beneficiary?.relationship ||
                 "—"}
             </p>
-
           </div>
 
-          {/* BENEFICIARY STATUS */}
-
           <div>
-
             <p className="text-xs font-medium uppercase text-gray-500">
               Beneficiary Status
             </p>
@@ -1029,15 +933,12 @@ export default function DeathNotificationDetailsPage() {
               {notification.beneficiary?.status ||
                 "—"}
             </p>
-
           </div>
 
         </div>
       </div>
 
-      {/* =====================================================
-          PROOF OF DEATH DOCUMENT
-      ===================================================== */}
+      {/* PROOF OF DEATH DOCUMENT */}
 
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
 
@@ -1056,10 +957,7 @@ export default function DeathNotificationDetailsPage() {
 
             <div className="space-y-5">
 
-              {/* FILE NAME */}
-
               <div>
-
                 <p className="text-xs font-medium uppercase text-gray-500">
                   Submitted Document
                 </p>
@@ -1068,14 +966,10 @@ export default function DeathNotificationDetailsPage() {
                   {notification.documentFileName ||
                     notification.proofOfDeathDocument}
                 </p>
-
               </div>
-
-              {/* STORED FILE */}
 
               {notification.proofOfDeathDocument && (
                 <div>
-
                   <p className="text-xs font-medium uppercase text-gray-500">
                     Stored File
                   </p>
@@ -1083,11 +977,8 @@ export default function DeathNotificationDetailsPage() {
                   <p className="mt-1 break-all text-xs text-gray-500">
                     {notification.proofOfDeathDocument}
                   </p>
-
                 </div>
               )}
-
-              {/* VIEW DOCUMENT */}
 
               <div className="pt-2">
 
@@ -1124,9 +1015,7 @@ export default function DeathNotificationDetailsPage() {
         </div>
       </div>
 
-      {/* =====================================================
-          REJECTION REASON
-      ===================================================== */}
+      {/* REJECTION REASON */}
 
       {notification.rejectionReason && (
         <div className="rounded-xl border border-red-200 bg-red-50 shadow-sm">
@@ -1146,9 +1035,7 @@ export default function DeathNotificationDetailsPage() {
         </div>
       )}
 
-      {/* =====================================================
-          REVIEW ACTIONS
-      ===================================================== */}
+      {/* REVIEW ACTIONS */}
 
       {isPending && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -1168,8 +1055,6 @@ export default function DeathNotificationDetailsPage() {
           </div>
 
           <div className="px-6 py-6">
-
-            {/* APPROVE / REJECT BUTTONS */}
 
             {!showReject ? (
 
@@ -1204,8 +1089,6 @@ export default function DeathNotificationDetailsPage() {
               </div>
 
             ) : (
-
-              /* REJECTION FORM */
 
               <div className="space-y-4">
 
@@ -1277,9 +1160,7 @@ export default function DeathNotificationDetailsPage() {
         </div>
       )}
 
-      {/* =====================================================
-          COMPLETED
-      ===================================================== */}
+      {/* COMPLETED */}
 
       {!isPending && (
         <div className="rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm">

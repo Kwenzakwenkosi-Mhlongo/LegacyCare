@@ -9,8 +9,7 @@ import { getToken } from "@/lib/auth";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:5224/api";
-
+  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api";
 type ServiceRequest = {
   serviceRequestId: number;
   clientId: string | number;
