@@ -4,13 +4,17 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth";
 
+/*
+ * LegacyCare Azure API
+ *
+ * IMPORTANT:
+ * Do not use localhost here when the frontend is deployed.
+ */
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
   "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api";
+
 /*
  * LegacyCare contact number.
- *
- * 
  */
 const LEGACYCARE_CONTACT_NUMBER = "0817381235";
 
@@ -110,7 +114,7 @@ type ServiceRequest = {
 };
 
 function getRequestIcon(requestType: string) {
-  const type = requestType.toLowerCase();
+  const type = (requestType || "").toLowerCase();
 
   if (type.includes("appointment")) return "📅";
   if (type.includes("funeral")) return "🕊️";
@@ -126,7 +130,7 @@ function getRequestIcon(requestType: string) {
 }
 
 function getStatusStyle(status: string) {
-  switch (status.toLowerCase()) {
+  switch ((status || "").toLowerCase()) {
     case "pending":
       return "bg-amber-100 text-amber-700 border-amber-200";
 
@@ -151,7 +155,7 @@ function getStatusStyle(status: string) {
 }
 
 function getPriorityStyle(priority: string) {
-  switch (priority.toLowerCase()) {
+  switch ((priority || "").toLowerCase()) {
     case "high":
       return "bg-red-50 text-red-700 border-red-200";
 
@@ -211,23 +215,17 @@ function isDeathRequest(requestType: string) {
 }
 
 export default function ServiceRequestsPage() {
-  const [requests, setRequests] =
-    useState<ServiceRequest[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
 
-  const [branches, setBranches] =
-    useState<Branch[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [loadingBranches, setLoadingBranches] =
-    useState(true);
+  const [loadingBranches, setLoadingBranches] = useState(true);
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
 
   // ============================================================
   // LOAD BRANCHES
@@ -241,24 +239,26 @@ export default function ServiceRequestsPage() {
         const token = getToken();
 
         if (!token) {
+          setLoadingBranches(false);
           return;
         }
 
-        const response = await fetch(
-          `${API_URL}/Branch`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const url = `${API_URL}/Branch`;
 
-        const data =
-          await response.json().catch(
-            () => null
-          );
+        console.log("[Branch] GET:", url);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json().catch(() => null);
+
+        console.log("[Branch] Response:", response.status);
+        console.log("[Branch] Data:", data);
 
         if (!response.ok) {
           console.error(
@@ -267,13 +267,9 @@ export default function ServiceRequestsPage() {
             data
           );
 
+          setBranches([]);
           return;
         }
-
-        console.log(
-          "[Branch] API RESPONSE:",
-          data
-        );
 
         if (Array.isArray(data)) {
           setBranches(data);
@@ -281,11 +277,7 @@ export default function ServiceRequestsPage() {
           setBranches([]);
         }
       } catch (err) {
-        console.error(
-          "Load branches error:",
-          err
-        );
-
+        console.error("Load branches error:", err);
         setBranches([]);
       } finally {
         setLoadingBranches(false);
@@ -299,24 +291,19 @@ export default function ServiceRequestsPage() {
   // GET BRANCH DETAILS
   // ============================================================
 
-  const getBranchDetails = (
-    branchId?: string | null
-  ) => {
+  const getBranchDetails = (branchId?: string | null) => {
     if (!branchId) {
       return null;
     }
 
-    const normalisedBranchId =
-      String(branchId)
-        .trim()
-        .toLowerCase();
+    const normalisedBranchId = String(branchId)
+      .trim()
+      .toLowerCase();
 
     return (
       branches.find(
         (branch) =>
-          String(branch.branchId)
-            .trim()
-            .toLowerCase() ===
+          String(branch.branchId).trim().toLowerCase() ===
           normalisedBranchId
       ) || null
     );
@@ -326,9 +313,7 @@ export default function ServiceRequestsPage() {
   // LOAD REQUESTS
   // ============================================================
 
-  const loadRequests = async (
-    showRefresh = false
-  ) => {
+  const loadRequests = async (showRefresh = false) => {
     try {
       if (showRefresh) {
         setRefreshing(true);
@@ -345,36 +330,40 @@ export default function ServiceRequestsPage() {
         return;
       }
 
-      const response = await fetch(
-        `${API_URL}/ServiceRequest/client`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      /*
+       * IMPORTANT:
+       * This now calls Azure instead of localhost.
+       */
+      const url = `${API_URL}/ServiceRequest/client`;
+
+      console.log("[ServiceRequest] GET:", url);
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log(
+        "[ServiceRequest] Response:",
+        response.status
       );
 
-      if (!response.ok) {
-        const data =
-          await response.json().catch(
-            () => null
-          );
-
-        throw new Error(
-          data?.message ||
-            `Failed to load requests (${response.status})`
-        );
-      }
-
-      const data =
-        await response.json();
+      const data = await response.json().catch(() => null);
 
       console.log(
         "[ServiceRequest] API RESPONSE:",
         data
       );
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            `Failed to load requests (${response.status})`
+        );
+      }
 
       console.log(
         "[ServiceRequest] DETAILS:",
@@ -392,11 +381,7 @@ export default function ServiceRequestsPage() {
           : []
       );
 
-      setRequests(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+      setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(
         "Service requests error:",
@@ -578,9 +563,7 @@ export default function ServiceRequestsPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      loadRequests()
-                    }
+                    onClick={() => loadRequests()}
                     className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                   >
                     Try Again
@@ -653,8 +636,7 @@ export default function ServiceRequestsPage() {
                       {
                         requests.filter(
                           (request) =>
-                            request.status
-                              .toLowerCase() ===
+                            (request.status || "").toLowerCase() ===
                             "pending"
                         ).length
                       }
@@ -670,8 +652,7 @@ export default function ServiceRequestsPage() {
                       {
                         requests.filter(
                           (request) =>
-                            request.status
-                              .toLowerCase() ===
+                            (request.status || "").toLowerCase() ===
                             "completed"
                         ).length
                       }
@@ -701,9 +682,7 @@ export default function ServiceRequestsPage() {
 
                   return (
                     <div
-                      key={
-                        request.serviceRequestId
-                      }
+                      key={request.serviceRequestId}
                       className="rounded-xl border border-gray-200 p-5 transition hover:border-teal-300 hover:shadow-sm"
                     >
 
@@ -727,10 +706,7 @@ export default function ServiceRequestsPage() {
                                 REQ-
                                 {String(
                                   request.serviceRequestId
-                                ).padStart(
-                                  5,
-                                  "0"
-                                )}
+                                ).padStart(5, "0")}
                               </h3>
 
                               <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
