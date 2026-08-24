@@ -11,7 +11,7 @@ const API_URL =
 /*
  * LegacyCare contact number.
  *
- * Replace this with your actual Admin/LegacyCare contact number.
+ * 
  */
 const LEGACYCARE_CONTACT_NUMBER = "0817381235";
 
