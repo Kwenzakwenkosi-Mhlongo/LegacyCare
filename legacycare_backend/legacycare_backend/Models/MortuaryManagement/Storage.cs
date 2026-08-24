@@ -21,6 +21,8 @@ namespace PolicyManagement.Models.MortuaryManagement
         public Storage()
         {
             StorageId = Guid.NewGuid().ToString();
+            UnitNumber = string.Empty;
+            BranchId = string.Empty;
             IsAvailable = true;
         }
 

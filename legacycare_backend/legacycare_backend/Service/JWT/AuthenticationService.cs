@@ -62,7 +62,29 @@ namespace PolicyManagement.Services
 
             await _context.SaveChangesAsync();
 
-            var jwt = _jwtService.GenerateToken(user);
+            // ========================================================
+            // ADDED: if this user is a Client, look up their ClientId
+            // (e.g. "CLN006") so it can be embedded in the JWT.
+            //
+            // This is the actual identifier ServiceRequest.ClientId
+            // is stored against — the User table's UserId ("USR006")
+            // is a different ID space and never matches.
+            // ========================================================
+
+            string? clientId = null;
+
+            if (string.Equals(
+                    user.Role.ToString(),
+                    "Client",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var client = await _context.Client
+                    .FirstOrDefaultAsync(c => c.UserId == user.UserId);
+
+                clientId = client?.ClientId;
+            }
+
+            var jwt = _jwtService.GenerateToken(user, clientId);
 
             return new LoginResponse
             {

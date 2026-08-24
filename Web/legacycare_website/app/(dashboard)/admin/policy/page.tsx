@@ -18,8 +18,6 @@ import PolicyDetails from "@/components/modals/admin/policy/PolicyDetails";
 import ChangePolicy from "@/components/modals/admin/policy/ChangePolicy";
 import UpdatePolicyStatus from "@/components/modals/admin/policy/UpdatePolicyStatus";
 
-import PolicyMetricCard from "@/components/dashboard/metriccard/admin/PolicyMetricCard";
-
 import { useNotifications } from "@/components/notifications/NotificationContext";
 
 import {
@@ -176,7 +174,7 @@ export default function PolicyPage() {
               className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${statusLabel === "Active"
                   ? "bg-green-100 text-green-700"
                   : statusLabel ===
-                    "Inactive" 
+                    "Inactive"
                     ? "bg-red-100 text-red-700"
                     : "bg-gray-100 text-gray-700"
                 }`}
@@ -418,32 +416,10 @@ export default function PolicyPage() {
     }
   };
 
-  /* ---------------- METRIC CALCULATIONS ---------------- */
-
-  const totalPolicies = policies.length;
-
-  const activePolicies = policies.filter(
-    (policy) =>
-      policy.status === "Active"
-  ).length;
-
-  const inactivePolicies = policies.filter(
-    (policy) =>
-      policy.status === "Inactive" ||
-      policy.status === "Discontinued"
-  ).length;
-
   return (
     <div className="space-y-6">
       {/* PAGE HEADER */}
       <PageBreadcrumb pageTitle="Manage Policies" />
-
-      {/* METRIC CARDS */}
-      <PolicyMetricCard
-        totPolicy={totalPolicies}
-        activePolicy={activePolicies}
-        inactivePolicy={inactivePolicies}
-      />
 
       {/* TABLE + DETAILS PANEL */}
       <div className="grid grid-cols-12 gap-6">

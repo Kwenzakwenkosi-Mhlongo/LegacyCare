@@ -1,3 +1,5 @@
+
+
 namespace PolicyManagement.DTOs.Requests
 {
     public class CreatePolicyRequest
@@ -9,6 +11,6 @@ namespace PolicyManagement.DTOs.Requests
         public DateTime StartDate { get; set; }
 
         public List<CreateBeneficiaryRequest> Beneficiaries { get; set; }
-            = new();
+            = [];
     }
 }

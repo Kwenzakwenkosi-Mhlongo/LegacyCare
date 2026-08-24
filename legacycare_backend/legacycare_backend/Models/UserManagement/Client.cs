@@ -8,21 +8,38 @@ namespace PolicyManagement.Models.UserManagement
         [Key]
         public string? ClientId { get; set; } = string.Empty;
 
-        public required string UserId { get; set; } = string.Empty;
+        [Required]
+        public string UserId { get; set; } = string.Empty;
 
         [ForeignKey(nameof(UserId))]
-        public User User { get; set; } = null!;
+        public virtual User User { get; set; } = null!;
 
-        //Display ClentID in form "CL + Number"
-        [NotMapped]// Means "DO NOT CREATE A DB COLUMN FOR THIS PROPERTY"
-        public string DisplayClientId {
+        // ============================================
+        // CLIENT BRANCH
+        // ============================================
+
+        public string? BranchId { get; set; }
+
+        [ForeignKey(nameof(BranchId))]
+        public virtual Branch? Branch { get; set; }
+
+        // ============================================
+        // DISPLAY CLIENT ID
+        // ============================================
+
+        [NotMapped]
+        public string DisplayClientId
+        {
             get
             {
-                return int.TryParse(ClientId, out int id) 
-                ?  $"CL{id:D3}"
-                : ClientId ?? "";
+                return int.TryParse(ClientId, out int id)
+                    ? $"CL{id:D3}"
+                    : ClientId ?? "";
             }
         }
-        public Client(){}
+
+        public Client()
+        {
+        }
     }
 }

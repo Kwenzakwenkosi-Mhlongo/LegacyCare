@@ -6,6 +6,7 @@ using PolicyManagement.DTOs.Responses;
 using PolicyManagement.Enums;
 using PolicyManagement.Models;
 using PolicyManagement.Service.PolicyManagement;
+using System.Security.Claims;
 
 namespace PolicyManagement.Controllers
 {
@@ -57,6 +58,76 @@ namespace PolicyManagement.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+        [HttpGet("client")]
+[Authorize]
+public IActionResult GetClientPolicies()
+{
+    try
+    {
+        var userId =
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("userId")?.Value;
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Unable to determine the logged-in client."
+            });
+        }
+
+        var policies = _policyService.GetPoliciesByUser(userId);
+
+        var response = policies.Select(p => new PolicyResponse
+        {
+            PolicyId = p.PolicyId,
+
+            UserId = p.UserId,
+
+            ClientName = p.User?.FullName ?? "N/A",
+
+            PackageId = p.PackageId,
+
+            PackageName = p.Package?.Name ?? "N/A",
+
+            MonthlyPremium =
+                p.Package?.MonthlyPremium ?? 0,
+
+            StartDate = p.StartDate,
+
+            EndDate = p.EndDate,
+
+            Status = p.Status,
+
+            Beneficiaries = p.Beneficiaries?
+                .Select(b => new BeneficiaryResponse
+                {
+                    BeneficiaryId = b.BeneficiaryId,
+
+                    FullName = b.FullName,
+
+                    IDNumber = b.IDNumber,
+
+                    Relationship = b.Relationship,
+
+                    Status = b.Status
+                })
+                .ToList()
+                ?? new List<BeneficiaryResponse>()
+        });
+
+        return Ok(response);
+    }
+    catch (Exception ex)
+    {
+        return BadRequest(new
+        {
+            message = ex.Message
+        });
+    }
+}
 
         [HttpGet("{policyId}")]
         public IActionResult GetPolicyById(string policyId)

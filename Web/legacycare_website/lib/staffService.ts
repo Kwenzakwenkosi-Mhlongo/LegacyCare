@@ -1,22 +1,25 @@
 import { apiFetch } from "./api";
+import { API_BASE_URL } from "./config";
 
-const API_URL = "https://legacycare-backend.onrender.com/api/staff";
+const API_URL = `${API_BASE_URL}/staff`;
 
 export async function getStaffs() {
     const response = await apiFetch(API_URL);
 
-    if (!response.ok){
+    if (!response.ok) {
         throw new Error("Failed to fetch staff");
     }
+
     return response.json();
 }
 
 export async function getStaff(staffId: string) {
     const response = await apiFetch(`${API_URL}/${staffId}`);
 
-    if (!response.ok){
+    if (!response.ok) {
         throw new Error("Failed to fetch staff info");
     }
+
     return response.json();
 }
 
@@ -26,34 +29,39 @@ export async function createStaff(staff: any) {
         body: JSON.stringify(staff),
     });
 
-    if (!response.ok){
+    if (!response.ok) {
         const errorMessage = await response.text();
         throw new Error(errorMessage);
     }
+
     return response.json();
 }
 
-export async function updateStaff(staffId: string, staff: {
-    fullName: string;
-    idNumber: string;
-    email: string;
-    cellNo: string;
-    address: string;
-    isActive: boolean;
-    role: string;
-    salary: number;
-    branchId: string
-}) {
+export async function updateStaff(
+    staffId: string,
+    staff: {
+        fullName: string;
+        idNumber: string;
+        email: string;
+        cellNo: string;
+        address: string;
+        isActive: boolean;
+        role: string;
+        salary: number;
+        branchId: string;
+    }
+) {
     const response = await apiFetch(`${API_URL}/${staffId}`, {
         method: "PUT",
         body: JSON.stringify(staff),
     });
 
-    if (!response.ok){
+    if (!response.ok) {
         const errorText = await response.text();
         console.error("Update Staff Error:", errorText);
         throw new Error(errorText);
     }
+
     return true;
 }
 
@@ -62,9 +70,10 @@ export async function deactivateStaff(staffId: string) {
         method: "DELETE",
     });
 
-    if (!response.ok){
+    if (!response.ok) {
         throw new Error("Failed to delete staff");
     }
+
     return true;
 }
 
@@ -76,5 +85,6 @@ export async function activateStaff(staffId: string) {
     if (!response.ok) {
         throw new Error("Failed to activate staff");
     }
+
     return true;
 }

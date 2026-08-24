@@ -2,9 +2,8 @@ namespace PolicyManagement.Enums
 {
     public enum BeneficiaryStatus
     {
-        Active,
-        Alive,
-        Deceased,
-        Removed
+       Alive = 0,
+        Removed = 1,
+        Deceased = 2
     }
 }

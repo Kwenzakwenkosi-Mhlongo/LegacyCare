@@ -16,14 +16,24 @@ namespace PolicyManagement.Service.UserManagement
         }
 
         public IEnumerable<Staff> GetAllStaff()
-        {
-            return _context.Staff
-                .Include(s => s.User)
-                .Include(s => s.Branch)
-                .AsEnumerable()
-                .OrderBy(s => int.TryParse(s.StaffId, out int id) ? id : 0)
-                .ToList();
-        }
+{
+    try
+    {
+        return _context.Staff
+            .Include(s => s.User)
+            .Include(s => s.Branch)
+            .AsEnumerable()
+            .OrderBy(s => int.TryParse(s.StaffId, out int id) ? id : 0)
+            .ToList();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("========== STAFF ERROR ==========");
+        Console.WriteLine(ex.ToString());
+        Console.WriteLine("=================================");
+        throw;
+    }
+}
 
         public Staff GetStaffById(string staffId)
         {

@@ -98,14 +98,16 @@ namespace PolicyManagement.Service.PolicyManagement
             switch (request.RequestType)
             {
                 case RequestType.Add:
-                    var beneficiary = new Beneficiary
-                    {
-                        FullName = request.FullName!,
-                        IDNumber = request.IDNumber!,
-                        Relationship = request.Relationship,
-                        Status = BeneficiaryStatus.Active,
-                        PolicyId = request.PolicyId
-                    };
+                 var beneficiary = new Beneficiary
+{
+    FullName = request.FullName!,
+    IDNumber = request.IDNumber!,
+    DateOfBirth = request.DateOfBirth,
+    Gender = request.Gender!,
+    Relationship = request.Relationship,
+    Status = BeneficiaryStatus.Alive,
+    PolicyId = request.PolicyId
+};
                     _beneficiaryService.CreateBeneficiary(beneficiary);
                     break;
 
@@ -120,14 +122,16 @@ namespace PolicyManagement.Service.PolicyManagement
                     if (string.IsNullOrWhiteSpace(request.BeneficiaryId))
                         throw new InvalidOperationException("BeneficiaryId is required for update.");
 
-                    var updatedBeneficiary = new Beneficiary
-                    {
-                        FullName = request.FullName!,
-                        Relationship = request.Relationship,
-                        IDNumber = request.IDNumber!,
-                        Status = BeneficiaryStatus.Active,
-                        PolicyId = request.PolicyId
-                    };
+                var updatedBeneficiary = new Beneficiary
+{
+    FullName = request.FullName!,
+    IDNumber = request.IDNumber!,
+    DateOfBirth = request.DateOfBirth,
+    Gender = request.Gender!,
+    Relationship = request.Relationship,
+    Status = BeneficiaryStatus.Alive,
+    PolicyId = request.PolicyId
+};
                     _beneficiaryService.UpdateBeneficiary(request.BeneficiaryId, updatedBeneficiary);
                     break;
             }

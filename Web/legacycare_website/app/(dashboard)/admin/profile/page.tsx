@@ -2,12 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import Header from "@/components/profile/Header";
 import PersonalInformation from "@/components/profile/PersonalInformation";
 import AccountInformation from "@/components/profile/AccountInformation";
 import Security from "@/components/profile/Security";
 import ChangePasswordModal from "@/components/profile/ChangePasswordModal";
-import ProfileMetricCard from "@/components/dashboard/metriccard/admin/ProfileMetricCard";
 import { apiFetch } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import { getToken } from "@/lib/auth";
@@ -69,13 +67,20 @@ export default function ProfilePage() {
         const statsResponse = await apiFetch(`${API_BASE_URL}/Dashboard/stats`);
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
-          setStats({
-            totalClients: statsData.totalClients || 0,
-            totalStaff: statsData.totalStaff || 0,
-            totalEvents: statsData.totalEvents || 0,
-            totalTasks: statsData.totalTasks || 0,
-          });
+          console.log("Dashboard stats response:", statsData);
+         setStats({
+  totalClients: statsData.totalClients || 0,
+  totalStaff: statsData.totalStaff || 0,
+  totalEvents: statsData.totalEvents || 0,
+  totalTasks: statsData.totalTasks || 0,
+  totalPolicies: statsData.totalPolicies || 0,
+  totalPayments: statsData.totalPayments || 0,
+});
         } else {
+          console.warn(
+            "Dashboard stats request failed with status:",
+            statsResponse.status
+          );
           // If dashboard endpoint doesn't exist, use fallback
           setStats({
             totalClients: 0,
@@ -161,51 +166,39 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <PageBreadcrumb pageTitle="My Profile" />
 
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-4">
-          <Header
-            fullName={profile.fullName}
-            role={profile.role}
-            email={profile.email}
-            phone={profile.cellNo}
-            joined={formattedCreatedDate}
-          />
+      {/* All remaining cards stacked as a single vertical list */}
+      <div className="flex flex-col gap-6">
+        <PersonalInformation
+          
+          email={profile.email}
+          phone={profile.cellNo}
+          address={profile.address}
+          idNumber={profile.idNumber}
+        />
+
+        <AccountInformation
+          role={profile.role}
+          status={profile.isActive ? "Active" : "Inactive"}
+          createdDate={formattedCreatedDate}
+          lastLogin={formattedLastLogin}
+        />
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Total Events</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {stats?.totalEvents ?? 0}
+          </p>
         </div>
 
-        <div className="col-span-12 lg:col-span-8">
-          <ProfileMetricCard
-            totClients={stats?.totalClients || 0}
-            totStaff={stats?.totalStaff || 0}
-            totEvents={stats?.totalEvents || 0}
-            totTasks={stats?.totalTasks || 0}
-          />
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <p className="text-sm text-gray-500">Total Tasks</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {stats?.totalTasks ?? 0}
+          </p>
         </div>
 
-        <div className="col-span-12 grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-4">
-            <PersonalInformation
-              email={profile.email}
-              phone={profile.cellNo}
-              address={profile.address}
-              idNumber={profile.idNumber}
-            />
-          </div>
-
-          <div className="col-span-12 lg:col-span-4">
-            <AccountInformation
-              role={profile.role}
-              status={profile.isActive ? "Active" : "Inactive"}
-              createdDate={formattedCreatedDate}
-              lastLogin={formattedLastLogin}
-            />
-          </div>
-
-          <div className="col-span-12 lg:col-span-4">
-            <Security
-              onChangePassword={() => setShowChangePassword(true)}
-            />
-          </div>
-        </div>
+        {/* Security always last */}
+        <Security onChangePassword={() => setShowChangePassword(true)} />
       </div>
 
       {showChangePassword && (

@@ -1,6 +1,8 @@
-using PolicyManagement.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
+using PolicyManagement.Enums;
 
 namespace PolicyManagement.Models.UserManagement
 {
@@ -33,7 +35,9 @@ namespace PolicyManagement.Models.UserManagement
 
         public string? PasswordSetupToken { get; set; }
 
-public DateTime? PasswordSetupTokenExpiry { get; set; }
+        public DateTime? PasswordSetupTokenExpiry { get; set; }
+
+      
 
         public User()
         {
@@ -43,7 +47,14 @@ public DateTime? PasswordSetupTokenExpiry { get; set; }
         }
 
         [SetsRequiredMembers]
-        public User(string fullName, string idNumber, string email, string passwordHash, UserRole role, string cellNo, string address)
+        public User(
+            string fullName,
+            string idNumber,
+            string email,
+            string passwordHash,
+            UserRole role,
+            string cellNo,
+            string address)
         {
             UserId = Guid.NewGuid().ToString();
             FullName = fullName;
@@ -54,18 +65,26 @@ public DateTime? PasswordSetupTokenExpiry { get; set; }
             CellNo = cellNo;
             Address = address;
             DateCreated = DateTime.Now;
+            IsActive = true;
         }
 
-        public void UpdateDetails(string fullName, UserRole role, string cellNo, string address, string email)
+        public void UpdateDetails(
+            string fullName,
+            UserRole role,
+            string cellNo,
+            string address,
+            string email)
         {
             if (string.IsNullOrWhiteSpace(fullName))
             {
-                throw new ArgumentException("Full name cannot be empty.");
+                throw new ArgumentException(
+                    "Full name cannot be empty.");
             }
 
             if (string.IsNullOrWhiteSpace(email))
             {
-                throw new ArgumentException("Email cannot be empty.");
+                throw new ArgumentException(
+                    "Email cannot be empty.");
             }
 
             FullName = fullName;
@@ -79,7 +98,8 @@ public DateTime? PasswordSetupTokenExpiry { get; set; }
         {
             if (string.IsNullOrWhiteSpace(newPasswordHash))
             {
-                throw new ArgumentException("New password cannot be empty.");
+                throw new ArgumentException(
+                    "New password cannot be empty.");
             }
 
             PasswordHash = newPasswordHash;

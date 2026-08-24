@@ -10,68 +10,118 @@ namespace PolicyManagement.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        public AppDbContext(DbContextOptions<AppDbContext> options)
+            : base(options)
         {
         }
 
-        //Policy Management
-        public DbSet<Policy> Policy { get; set; }
-        public DbSet<Beneficiary> Beneficiary { get; set; }
-        public DbSet<Package> Package { get; set; }
-        public DbSet<ChangePackageRequest> ChangePackageRequest { get; set; }
-        public DbSet<BeneficiaryRequest> BeneficiaryRequest { get; set; }
-        public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; }
+        // =====================================================
+        // SERVICE REQUEST
+        // =====================================================
 
-        //User Management
-        public DbSet<User> Users { get; set; }
-        public DbSet<Staff> Staff { get; set; }
-        public DbSet<Client> Client { get; set; }
-        public DbSet<Branch> Branch { get; set; }
+        public DbSet<ServiceRequest> ServiceRequests { get; set; } = null!;
 
-        //Mortuary Management
-        public DbSet<Storage> StorageUnit { get; set; }
-        public DbSet<Deceased> Deceased { get; set; }
-        public DbSet<DeceasedStorage> DeceasedStorage { get; set; }
+        // =====================================================
+        // POLICY MANAGEMENT
+        // =====================================================
 
-        //Task Management
-        public DbSet<TaskItem> Task { get; set; }
+        public DbSet<Policy> Policy { get; set; } = null!;
+        public DbSet<Beneficiary> Beneficiary { get; set; } = null!;
+        public DbSet<Package> Package { get; set; } = null!;
+        public DbSet<ChangePackageRequest> ChangePackageRequest { get; set; } = null!;
+        public DbSet<BeneficiaryRequest> BeneficiaryRequest { get; set; } = null!;
+        public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; } = null!;
 
-        //Scheduling Management
-        public DbSet<Event> Event { get; set; }
-        public DbSet<BookingRestriction> BookingRestriction { get; set; }
-        public DbSet<EventUser> EventUser { get; set; }  // ← ADD THIS
+        // =====================================================
+        // USER MANAGEMENT
+        // =====================================================
 
-        //Payment Management
-        public DbSet<Payment> Payment { get; set; }
-        public DbSet<PaymentMethod> PaymentMethod { get; set; }
-        public DbSet<Invoice> Invoice { get; set; }
+        public DbSet<User> Users { get; set; } = null!;
+        public DbSet<Staff> Staff { get; set; } = null!;
+        public DbSet<Client> Client { get; set; } = null!;
+        public DbSet<Branch> Branch { get; set; } = null!;
+        
+
+        // =====================================================
+        // MORTUARY MANAGEMENT
+        // =====================================================
+
+        public DbSet<Storage> StorageUnit { get; set; } = null!;
+        public DbSet<Deceased> Deceased { get; set; } = null!;
+        public DbSet<DeceasedStorage> DeceasedStorage { get; set; } = null!;
+        public DbSet<FuneralRequest> FuneralRequests { get; set; } = null!;
+        public DbSet<FuneralStaffDeployment> FuneralStaffDeployments { get; set; } = null!;
+
+        // =====================================================
+        // DEATH NOTIFICATIONS
+        // =====================================================
+
+        public DbSet<DeathNotification> DeathNotifications { get; set; } = null!;
+
+        // =====================================================
+        // TASK MANAGEMENT
+        // =====================================================
+
+        public DbSet<TaskItem> Task { get; set; } = null!;
+
+        // =====================================================
+        // SCHEDULING
+        // =====================================================
+
+        public DbSet<Event> Event { get; set; } = null!;
+        public DbSet<BookingRestriction> BookingRestriction { get; set; } = null!;
+        public DbSet<EventUser> EventUser { get; set; } = null!;
+
+        // =====================================================
+        // PAYMENT MANAGEMENT
+        // =====================================================
+
+        public DbSet<Payment> Payment { get; set; } = null!;
+        public DbSet<PaymentMethod> PaymentMethod { get; set; } = null!;
+        public DbSet<Invoice> Invoice { get; set; } = null!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // =====================================================
             // USER -> POLICY
+            // =====================================================
+
             modelBuilder.Entity<Policy>()
                 .HasOne(p => p.User)
                 .WithMany()
                 .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+
+            // =====================================================
             // PACKAGE -> POLICY
+            // =====================================================
+
             modelBuilder.Entity<Policy>()
                 .HasOne(p => p.Package)
                 .WithMany()
                 .HasForeignKey(p => p.PackageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+
+            // =====================================================
             // POLICY -> BENEFICIARY
+            // =====================================================
+
             modelBuilder.Entity<Beneficiary>()
                 .HasOne(b => b.Policy)
                 .WithMany(p => p.Beneficiaries)
                 .HasForeignKey(b => b.PolicyId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+
+            // =====================================================
             // BENEFICIARY REQUEST
+            // =====================================================
+
             modelBuilder.Entity<BeneficiaryRequest>()
                 .HasOne(r => r.User)
                 .WithMany()
@@ -90,7 +140,11 @@ namespace PolicyManagement.Data
                 .HasForeignKey(r => r.BeneficiaryId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+
+            // =====================================================
             // CHANGE PACKAGE REQUEST
+            // =====================================================
+
             modelBuilder.Entity<ChangePackageRequest>()
                 .HasOne(r => r.User)
                 .WithMany()
@@ -109,7 +163,22 @@ namespace PolicyManagement.Data
                 .HasForeignKey(r => r.NewPackageId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+
+            // =====================================================
+            // DECEASED -> BENEFICIARY
+            // =====================================================
+
+            modelBuilder.Entity<Deceased>()
+                .HasOne(x => x.Beneficiary)
+                .WithMany()
+                .HasForeignKey(x => x.BeneficiaryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
             // DECEASED STORAGE
+            // =====================================================
+
             modelBuilder.Entity<DeceasedStorage>()
                 .HasOne(ds => ds.Deceased)
                 .WithMany()
@@ -122,9 +191,61 @@ namespace PolicyManagement.Data
                 .HasForeignKey(ds => ds.StorageId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // SCHEDULE MANAGEMENT - EVENT STAFF (Many-to-Many via EventUser)
+
+            // =====================================================
+            // DEATH NOTIFICATION -> POLICY
+            // =====================================================
+
+            modelBuilder.Entity<DeathNotification>()
+                .HasOne(x => x.Policy)
+                .WithMany()
+                .HasForeignKey(x => x.PolicyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
+            // DEATH NOTIFICATION -> BENEFICIARY
+            // =====================================================
+
+            modelBuilder.Entity<DeathNotification>()
+                .HasOne(x => x.Beneficiary)
+                .WithMany()
+                .HasForeignKey(x => x.BeneficiaryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
+            // DEATH NOTIFICATION -> REPORTED BY USER
+            // =====================================================
+
+            modelBuilder.Entity<DeathNotification>()
+                .HasOne(x => x.ReportedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.ReportedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
+            // DEATH NOTIFICATION -> VERIFIED BY USER
+            // =====================================================
+
+            modelBuilder.Entity<DeathNotification>()
+                .HasOne(x => x.VerifiedBy)
+                .WithMany()
+                .HasForeignKey(x => x.VerifiedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
+            // EVENT -> USER
+            // =====================================================
+
             modelBuilder.Entity<EventUser>()
-                .HasKey(eu => new { eu.EventId, eu.UserId });
+                .HasKey(eu => new
+                {
+                    eu.EventId,
+                    eu.UserId
+                });
 
             modelBuilder.Entity<EventUser>()
                 .HasOne(eu => eu.Event)
@@ -138,30 +259,104 @@ namespace PolicyManagement.Data
                 .HasForeignKey(eu => eu.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // ===== USER MANAGEMENT CONFIGURATIONS =====
 
-            // UserRole conversion to string
+                // =====================================================
+// FUNERAL REQUEST -> DEATH NOTIFICATION
+// =====================================================
+
+modelBuilder.Entity<FuneralRequest>()
+    .HasOne(x => x.DeathNotification)
+    .WithMany()
+    .HasForeignKey(x => x.DeathNotificationId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+// =====================================================
+// FUNERAL REQUEST -> CLIENT
+// =====================================================
+
+modelBuilder.Entity<FuneralRequest>()
+    .HasOne(x => x.Client)
+    .WithMany()
+    .HasForeignKey(x => x.ClientId)
+    .HasPrincipalKey(x => x.ClientId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+// =====================================================
+// FUNERAL REQUEST -> BRANCH
+// =====================================================
+
+modelBuilder.Entity<FuneralRequest>()
+    .HasOne(x => x.Branch)
+    .WithMany()
+    .HasForeignKey(x => x.BranchId)
+    .HasPrincipalKey(b => b.BranchId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+
+            // =====================================================
+            // USER MANAGEMENT
+            // =====================================================
+
             modelBuilder.Entity<User>()
                 .Property(u => u.Role)
                 .HasConversion<string>();
 
-            // StaffType conversion to string
             modelBuilder.Entity<Staff>()
                 .Property(s => s.StaffRole)
                 .HasConversion<string>();
 
-            // Payment amount decimal precision
+
+         // =====================================================
+// CLIENT -> SERVICE REQUEST
+// =====================================================
+
+modelBuilder.Entity<ServiceRequest>()
+    .HasOne(x => x.Client)
+    .WithMany()
+    .HasForeignKey(x => x.ClientId)
+    .HasPrincipalKey(x => x.ClientId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+
+// =====================================================
+// BRANCH -> SERVICE REQUEST
+// =====================================================
+
+modelBuilder.Entity<ServiceRequest>()
+    .HasOne(x => x.Branch)
+    .WithMany(b => b.ServiceRequests)
+    .HasForeignKey(x => x.BranchId)
+    .HasPrincipalKey(b => b.BranchId)
+    .OnDelete(DeleteBehavior.Restrict);
+
+
+// =====================================================
+// SERVICE REQUEST -> ADDITIONAL FEE
+// =====================================================
+
+modelBuilder.Entity<ServiceRequest>()
+    .Property(x => x.AdditionalFee)
+    .HasPrecision(18, 2);
+
+            // =====================================================
+            // PAYMENT
+            // =====================================================
+
             modelBuilder.Entity<Payment>()
                 .Property(p => p.Amount)
                 .HasColumnType("decimal(18,2)");
 
-                // PASSWORD SETUP TOKEN
-modelBuilder.Entity<PasswordSetupToken>()
-    .HasIndex(x => x.Token)
-    .IsUnique();
 
-modelBuilder.Entity<PasswordSetupToken>()
-    .HasIndex(x => x.UserId);
+            // =====================================================
+            // PASSWORD SETUP TOKEN
+            // =====================================================
+
+            modelBuilder.Entity<PasswordSetupToken>()
+                .HasIndex(x => x.Token)
+                .IsUnique();
+
+            modelBuilder.Entity<PasswordSetupToken>()
+                .HasIndex(x => x.UserId);
         }
     }
 }

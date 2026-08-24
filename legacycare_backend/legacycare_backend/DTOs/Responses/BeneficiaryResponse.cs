@@ -10,8 +10,14 @@ namespace PolicyManagement.DTOs.Responses
 
         public string IDNumber { get; set; } = string.Empty;
 
+        public DateTime DateOfBirth { get; set; }
+
+        public string Gender { get; set; } = string.Empty;
+
         public BeneficiaryRelationship Relationship { get; set; }
 
         public BeneficiaryStatus Status { get; set; }
+
+        public string PolicyId { get; set; } = string.Empty;
     }
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 import AppSidebar from "@/layout/AppSidebar";
 import AppHeader from "@/layout/AppHeader";
 import Footer from "@/components/footer/Footer";
@@ -8,7 +10,11 @@ import Backdrop from "@/layout/Backdrop";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
+function DashboardShell({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   const mainContentMargin = isMobileOpen
@@ -20,6 +26,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen xl:flex bg-[#F5F7FA]">
       <AppSidebar />
+
       <Backdrop />
 
       <div className={`flex-1 transition-all ${mainContentMargin}`}>
@@ -39,11 +46,37 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  /*
+   * CLIENT PAGES
+   *
+   * Client has its own sidebar/layout.
+   * Therefore, do NOT render the parent dashboard
+   * sidebar or header here.
+   */
+  const isClientPage = pathname.startsWith("/client");
+
+  if (isClientPage) {
+    return (
+      <ProtectedRoute>
+        {children}
+      </ProtectedRoute>
+    );
+  }
+
+  /*
+   * ADMIN / STAFF / OTHER DASHBOARD PAGES
+   *
+   * Keep the existing dashboard sidebar and header.
+   */
   return (
     <ProtectedRoute>
       <SidebarProvider>
-      <DashboardShell>{children}</DashboardShell>
-    </SidebarProvider>
+        <DashboardShell>
+          {children}
+        </DashboardShell>
+      </SidebarProvider>
     </ProtectedRoute>
   );
 }

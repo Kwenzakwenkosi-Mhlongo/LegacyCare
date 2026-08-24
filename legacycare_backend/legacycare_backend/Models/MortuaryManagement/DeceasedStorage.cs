@@ -9,10 +9,10 @@ namespace PolicyManagement.Models.MortuaryManagement
         public string AssignmentId { get; set; }
 
         [Required]
-        public string StorageId { get; set; }
+        public string StorageId { get; set; } = string.Empty;
 
         [Required]
-        public string DeceasedId { get; set; }
+        public string DeceasedId { get; set; } = string.Empty;
 
         [Required]
         public DateTime DateAssigned { get; set; }
@@ -20,10 +20,10 @@ namespace PolicyManagement.Models.MortuaryManagement
         public DateTime? DateRemoved { get; set; }
 
         [ForeignKey(nameof(StorageId))]
-        public virtual Storage Storage { get; set; }
+        public virtual Storage Storage { get; set; } = null!;
 
         [ForeignKey(nameof(DeceasedId))]
-        public virtual Deceased Deceased { get; set; }
+        public virtual Deceased Deceased { get; set; } = null!;
 
         public DeceasedStorage()
         {

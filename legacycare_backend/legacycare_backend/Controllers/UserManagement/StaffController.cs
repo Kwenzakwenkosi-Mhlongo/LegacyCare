@@ -7,7 +7,7 @@ using PolicyManagement.Utilities;
 
 namespace PolicyManagement.Controllers.UserManagement
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Clerk")]
     [ApiController]
     [Route("api/[controller]")]
     public class StaffController : ControllerBase

@@ -15,9 +15,45 @@ export default function ClientPage() {
         <h1 className="text-2xl font-semibold text-gray-900">
           Client Dashboard
         </h1>
+
         <p className="mt-1 text-sm text-gray-500">
           Welcome back to your LegacyCare account.
         </p>
+      </div>
+
+      {/* SERVICE REQUESTS */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-2xl text-teal-700">
+                📋
+              </div>
+
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Service Requests
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-600">
+                  Request and manage LegacyCare services.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 max-w-2xl text-sm text-gray-600">
+              Submit a request for a funeral service, appointment,
+              quotation, support, or other LegacyCare services.
+            </p>
+          </div>
+
+          <Link
+            href="/client/service-requests"
+            className="inline-flex w-fit items-center justify-center rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+          >
+            Request a Service →
+          </Link>
+        </div>
       </div>
 
       {/* SUMMARY CARDS */}
@@ -29,6 +65,7 @@ export default function ClientPage() {
               <p className="text-sm font-medium text-gray-500">
                 My Policy
               </p>
+
               <h2 className="mt-2 text-2xl font-semibold text-gray-900">
                 Active
               </h2>
@@ -54,6 +91,7 @@ export default function ClientPage() {
               <p className="text-sm font-medium text-gray-500">
                 Beneficiaries
               </p>
+
               <h2 className="mt-2 text-2xl font-semibold text-gray-900">
                 View
               </h2>
@@ -79,6 +117,7 @@ export default function ClientPage() {
               <p className="text-sm font-medium text-gray-500">
                 Payments
               </p>
+
               <h2 className="mt-2 text-2xl font-semibold text-gray-900">
                 View
               </h2>
@@ -104,6 +143,7 @@ export default function ClientPage() {
           <h2 className="text-lg font-semibold text-gray-900">
             My Policy
           </h2>
+
           <p className="text-sm text-gray-500">
             Your current LegacyCare policy information.
           </p>
@@ -111,21 +151,30 @@ export default function ClientPage() {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div>
-            <p className="text-sm text-gray-500">Policy Status</p>
+            <p className="text-sm text-gray-500">
+              Policy Status
+            </p>
+
             <span className="mt-2 inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
               Active
             </span>
           </div>
 
           <div>
-            <p className="text-sm text-gray-500">Package</p>
+            <p className="text-sm text-gray-500">
+              Package
+            </p>
+
             <p className="mt-2 font-medium text-gray-900">
               My Funeral Package
             </p>
           </div>
 
           <div>
-            <p className="text-sm text-gray-500">Monthly Premium</p>
+            <p className="text-sm text-gray-500">
+              Monthly Premium
+            </p>
+
             <p className="mt-2 font-medium text-gray-900">
               R0.00
             </p>
@@ -152,52 +201,94 @@ export default function ClientPage() {
           Quickly access your LegacyCare services.
         </p>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* SERVICE REQUESTS */}
+          <Link
+            href="/client/service-requests"
+            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
+          >
+            <div className="text-2xl">
+              📋
+            </div>
+
+            <p className="mt-3 font-medium text-gray-900">
+              Service Requests
+            </p>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Request a service, appointment, quote or support.
+            </p>
+          </Link>
+
+          {/* PROFILE */}
           <Link
             href="/client/profile"
             className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
           >
-            <p className="font-medium text-gray-900">
+            <div className="text-2xl">
+              👤
+            </div>
+
+            <p className="mt-3 font-medium text-gray-900">
               My Profile
             </p>
+
             <p className="mt-1 text-sm text-gray-500">
-              View your details
+              View your details.
             </p>
           </Link>
 
+          {/* POLICIES */}
           <Link
             href="/client/policies"
             className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
           >
-            <p className="font-medium text-gray-900">
+            <div className="text-2xl">
+              🛡️
+            </div>
+
+            <p className="mt-3 font-medium text-gray-900">
               My Policies
             </p>
+
             <p className="mt-1 text-sm text-gray-500">
-              View policy information
+              View policy information.
             </p>
           </Link>
 
+          {/* BENEFICIARIES */}
           <Link
             href="/client/beneficiaries"
             className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
           >
-            <p className="font-medium text-gray-900">
+            <div className="text-2xl">
+              👥
+            </div>
+
+            <p className="mt-3 font-medium text-gray-900">
               Beneficiaries
             </p>
+
             <p className="mt-1 text-sm text-gray-500">
-              Manage beneficiaries
+              Manage beneficiaries.
             </p>
           </Link>
 
+          {/* PAYMENTS */}
           <Link
             href="/client/payments"
             className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
           >
-            <p className="font-medium text-gray-900">
+            <div className="text-2xl">
+              💳
+            </div>
+
+            <p className="mt-3 font-medium text-gray-900">
               Payments
             </p>
+
             <p className="mt-1 text-sm text-gray-500">
-              View payment history
+              View payment history.
             </p>
           </Link>
         </div>
@@ -210,6 +301,7 @@ export default function ClientPage() {
             <h2 className="text-lg font-semibold text-gray-900">
               Bookings
             </h2>
+
             <p className="mt-1 text-sm text-gray-500">
               View and manage your LegacyCare bookings.
             </p>

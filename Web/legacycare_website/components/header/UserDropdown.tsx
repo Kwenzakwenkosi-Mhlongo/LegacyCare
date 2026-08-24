@@ -1,23 +1,33 @@
 "use client";
-import Image from "next/image";
-import Link from "next/link";
-import React, { useState } from "react";
+
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { UserCircleIcon, LogoutIcon } from "@/icons";
 import LogoutConfirmation from "@/components/modals/confirmation/LogoutConfirmation";
-import { logout } from "@/lib/auth";
+import { getAuth, logout } from "@/lib/auth";
 
 export default function UserDropdown() {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [logoutModal,setLogoutModal] = useState(false);
 
-function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
-  e.stopPropagation();
-  setIsOpen((prev) => !prev);
-}
+  const [isOpen, setIsOpen] = useState(false);
+  const [logoutModal, setLogoutModal] = useState(false);
+  const [user, setUser] = useState<ReturnType<typeof getAuth>>(null);
+
+  // Get the currently logged-in user
+  useEffect(() => {
+    const authUser = getAuth();
+    setUser(authUser);
+  }, []);
+
+  function toggleDropdown(
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ) {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+  }
 
   function closeDropdown() {
     setIsOpen(false);
@@ -25,22 +35,38 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
 
   const handleLogout = () => {
     setLogoutModal(false);
-      logout();
-      router.replace("/");
+    logout();
+    router.replace("/");
   };
+
+  // Create initials from the user's full name
+  const initials =
+    user?.fullName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((name) => name[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "U";
 
   return (
     <div className="relative">
+      {/* User button */}
       <button
-        onClick={toggleDropdown} 
+        onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
+        {/* User initials */}
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11 bg-cyan-100 flex items-center justify-center font-semibold text-cyan-700">
-          MJ
+          {initials}
         </span>
 
-        <span className="block mr-1 font-medium text-white">Musharof</span>
+        {/* User name */}
+        <span className="block mr-1 font-medium text-white">
+          {user?.fullName || "User"}
+        </span>
 
+        {/* Dropdown arrow */}
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -61,20 +87,24 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
         </svg>
       </button>
 
+      {/* Dropdown */}
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
         className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
+        {/* User information */}
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Musharof Chowdhury
+            {user?.fullName || "User"}
           </span>
+
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
+            {user?.email || ""}
           </span>
         </div>
 
+        {/* Profile section */}
         <div className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
           <DropdownItem
             onItemClick={closeDropdown}
@@ -83,25 +113,31 @@ function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
             className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
           >
             <UserCircleIcon
-            className="fill-gray-200 group-hover:fill-gray-500 dark:fill-gray-500 dark:group-hover:fill-gray-400 size-6"/>
+              className="fill-gray-200 group-hover:fill-gray-500 dark:fill-gray-500 dark:group-hover:fill-gray-400 size-6"
+            />
+
             View profile
           </DropdownItem>
-
         </div>
+
+        {/* Logout */}
         <DropdownItem
-        onItemClick={() => setLogoutModal(true)}
-        tag="button"
-        className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300">
-          <LogoutIcon className="h-6 w-6 fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"/>
+          onItemClick={() => setLogoutModal(true)}
+          tag="button"
+          className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+        >
+          <LogoutIcon className="h-6 w-6 fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300" />
+
           Logout
         </DropdownItem>
       </Dropdown>
 
+      {/* Logout confirmation */}
       <LogoutConfirmation
-      isOpen={logoutModal}
-      onCancel={()=>setLogoutModal(false)}
-      onConfirm={handleLogout}
-   />
+        isOpen={logoutModal}
+        onCancel={() => setLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }

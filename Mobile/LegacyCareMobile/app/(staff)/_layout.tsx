@@ -7,6 +7,7 @@ export default function StaffLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+
         tabBarStyle: {
           backgroundColor: Colors.primary,
           borderTopColor: Colors.border,
@@ -14,8 +15,10 @@ export default function StaffLayout() {
           paddingTop: 5,
           height: 60,
         },
+
         tabBarActiveTintColor: Colors.gold,
         tabBarInactiveTintColor: Colors.textMuted,
+
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "500",
@@ -26,26 +29,43 @@ export default function StaffLayout() {
         name="index"
         options={{
           title: "Tasks",
+
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
+            <Ionicons
+              name="list-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
+
       <Tabs.Screen
         name="schedule"
         options={{
           title: "Schedule",
+
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons
+              name="calendar-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
+
       <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
+
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons
+              name="person-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />

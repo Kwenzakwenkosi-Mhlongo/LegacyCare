@@ -27,10 +27,18 @@ namespace PolicyManagement.Migrations
                     b.Property<string>("BeneficiaryId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Gender")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("IDNumber")
                         .IsRequired()
@@ -62,10 +70,16 @@ namespace PolicyManagement.Migrations
                     b.Property<string>("BeneficiaryId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<DateTime>("DateOfBirth")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FullName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Gender")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IDNumber")
@@ -123,6 +137,9 @@ namespace PolicyManagement.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
                     b.HasKey("BranchId");
 
                     b.ToTable("Branch");
@@ -166,9 +183,75 @@ namespace PolicyManagement.Migrations
                     b.ToTable("ChangePackageRequest");
                 });
 
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.DeathNotification", b =>
+                {
+                    b.Property<string>("DeathNotificationId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BeneficiaryId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BranchId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("DateOfDeath")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DateReported")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentFileName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PolicyId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProofOfDeathDocument")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReportedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("RequestNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VerifiedByUserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("DeathNotificationId");
+
+                    b.HasIndex("BeneficiaryId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("PolicyId");
+
+                    b.HasIndex("ReportedByUserId");
+
+                    b.HasIndex("VerifiedByUserId");
+
+                    b.ToTable("DeathNotifications");
+                });
+
             modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.Deceased", b =>
                 {
                     b.Property<string>("DeceasedId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BeneficiaryId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("CauseOfDeath")
@@ -197,9 +280,13 @@ namespace PolicyManagement.Migrations
 
                     b.Property<string>("PolicyId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("DeceasedId");
+
+                    b.HasIndex("BeneficiaryId");
+
+                    b.HasIndex("PolicyId");
 
                     b.ToTable("Deceased");
                 });
@@ -230,6 +317,106 @@ namespace PolicyManagement.Migrations
                     b.HasIndex("StorageId");
 
                     b.ToTable("DeceasedStorage");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.FuneralRequest", b =>
+                {
+                    b.Property<string>("FuneralRequestId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ApprovedByClerkId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("BranchId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeathNotificationId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("FuneralDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("FuneralTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("FuneralType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StaffRequired")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Venue")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("FuneralRequestId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("DeathNotificationId");
+
+                    b.ToTable("FuneralRequests");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.FuneralStaffDeployment", b =>
+                {
+                    b.Property<int>("FuneralStaffDeploymentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FuneralStaffDeploymentId"));
+
+                    b.Property<string>("DeployedByUserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DeployedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FuneralRequestId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("StaffId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("FuneralStaffDeploymentId");
+
+                    b.HasIndex("FuneralRequestId");
+
+                    b.HasIndex("StaffId");
+
+                    b.ToTable("FuneralStaffDeployments");
                 });
 
             modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.Storage", b =>
@@ -480,6 +667,69 @@ namespace PolicyManagement.Migrations
                     b.ToTable("EventUser");
                 });
 
+            modelBuilder.Entity("PolicyManagement.Models.ServiceRequest", b =>
+                {
+                    b.Property<int>("ServiceRequestId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ServiceRequestId"));
+
+                    b.Property<decimal?>("AdditionalFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("AppointmentDateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssignedStaffId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BranchId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FuneralRequestId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ServiceRequestId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("FuneralRequestId");
+
+                    b.ToTable("ServiceRequests");
+                });
+
             modelBuilder.Entity("PolicyManagement.Models.TaskManagement.TaskItem", b =>
                 {
                     b.Property<string>("TaskId")
@@ -535,11 +785,16 @@ namespace PolicyManagement.Migrations
                     b.Property<string>("ClientId")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("BranchId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("ClientId");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("UserId");
 
@@ -728,6 +983,65 @@ namespace PolicyManagement.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.DeathNotification", b =>
+                {
+                    b.HasOne("PolicyManagement.Models.Beneficiary", "Beneficiary")
+                        .WithMany()
+                        .HasForeignKey("BeneficiaryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.Branch", "Branch")
+                        .WithMany("DeathNotifications")
+                        .HasForeignKey("BranchId");
+
+                    b.HasOne("PolicyManagement.Models.Policy", "Policy")
+                        .WithMany()
+                        .HasForeignKey("PolicyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.UserManagement.User", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.UserManagement.User", "VerifiedBy")
+                        .WithMany()
+                        .HasForeignKey("VerifiedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Beneficiary");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Policy");
+
+                    b.Navigation("ReportedByUser");
+
+                    b.Navigation("VerifiedBy");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.Deceased", b =>
+                {
+                    b.HasOne("PolicyManagement.Models.Beneficiary", "Beneficiary")
+                        .WithMany()
+                        .HasForeignKey("BeneficiaryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.Policy", "Policy")
+                        .WithMany()
+                        .HasForeignKey("PolicyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Beneficiary");
+
+                    b.Navigation("Policy");
+                });
+
             modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.DeceasedStorage", b =>
                 {
                     b.HasOne("PolicyManagement.Models.MortuaryManagement.Deceased", "Deceased")
@@ -745,6 +1059,51 @@ namespace PolicyManagement.Migrations
                     b.Navigation("Deceased");
 
                     b.Navigation("Storage");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.FuneralRequest", b =>
+                {
+                    b.HasOne("PolicyManagement.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PolicyManagement.Models.UserManagement.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.MortuaryManagement.DeathNotification", "DeathNotification")
+                        .WithMany()
+                        .HasForeignKey("DeathNotificationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Client");
+
+                    b.Navigation("DeathNotification");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.FuneralStaffDeployment", b =>
+                {
+                    b.HasOne("PolicyManagement.Models.MortuaryManagement.FuneralRequest", "FuneralRequest")
+                        .WithMany("StaffDeployments")
+                        .HasForeignKey("FuneralRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.UserManagement.Staff", "Staff")
+                        .WithMany()
+                        .HasForeignKey("StaffId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FuneralRequest");
+
+                    b.Navigation("Staff");
                 });
 
             modelBuilder.Entity("PolicyManagement.Models.PaymentManagement.Invoice", b =>
@@ -841,6 +1200,30 @@ namespace PolicyManagement.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PolicyManagement.Models.ServiceRequest", b =>
+                {
+                    b.HasOne("PolicyManagement.Models.Branch", "Branch")
+                        .WithMany("ServiceRequests")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PolicyManagement.Models.UserManagement.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PolicyManagement.Models.MortuaryManagement.FuneralRequest", "FuneralRequest")
+                        .WithMany()
+                        .HasForeignKey("FuneralRequestId");
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Client");
+
+                    b.Navigation("FuneralRequest");
+                });
+
             modelBuilder.Entity("PolicyManagement.Models.TaskManagement.TaskItem", b =>
                 {
                     b.HasOne("PolicyManagement.Models.UserManagement.User", "AssignedTo")
@@ -866,11 +1249,17 @@ namespace PolicyManagement.Migrations
 
             modelBuilder.Entity("PolicyManagement.Models.UserManagement.Client", b =>
                 {
+                    b.HasOne("PolicyManagement.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId");
+
                     b.HasOne("PolicyManagement.Models.UserManagement.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Branch");
 
                     b.Navigation("User");
                 });
@@ -896,7 +1285,16 @@ namespace PolicyManagement.Migrations
 
             modelBuilder.Entity("PolicyManagement.Models.Branch", b =>
                 {
+                    b.Navigation("DeathNotifications");
+
+                    b.Navigation("ServiceRequests");
+
                     b.Navigation("StaffMembers");
+                });
+
+            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.FuneralRequest", b =>
+                {
+                    b.Navigation("StaffDeployments");
                 });
 
             modelBuilder.Entity("PolicyManagement.Models.Policy", b =>

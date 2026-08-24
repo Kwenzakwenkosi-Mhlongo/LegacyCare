@@ -37,6 +37,9 @@ namespace PolicyManagement.Models
         public BeneficiaryRelationship Relationship { get; set; }
 
         public string? IDNumber { get; set; }
+        public DateTime DateOfBirth { get; set; }
+
+        public string? Gender { get; set; }
 
         //Navigation Properties
 

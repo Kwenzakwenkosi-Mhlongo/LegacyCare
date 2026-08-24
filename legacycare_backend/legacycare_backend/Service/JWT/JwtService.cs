@@ -15,7 +15,24 @@ namespace PolicyManagement.Service.JWT
             _configuration = configuration;
         }
 
-        public (string Token, DateTime Expiration) GenerateToken(User user)
+        // ============================================================
+        // IMPORTANT CHANGE:
+        // Added an optional clientId parameter. When the logged-in
+        // user is a Client, their ClientId (e.g. "CLN006") is embedded
+        // as its own claim. This is what ServiceRequestController's
+        // GetCurrentClientId() looks for FIRST:
+        //
+        //   User.FindFirstValue("ClientId")
+        //
+        // Without this, it fell back to NameIdentifier (the User ID,
+        // e.g. "USR006"), which never matches ServiceRequest.ClientId
+        // (e.g. "CLN006") — causing every client request list to come
+        // back empty even though everything else was working.
+        // ============================================================
+
+        public (string Token, DateTime Expiration) GenerateToken(
+            User user,
+            string? clientId = null)
         {
             var key = _configuration["JwtSettings:Secret"] ??
                       _configuration["Jwt:Key"] ??
@@ -45,6 +62,15 @@ namespace PolicyManagement.Service.JWT
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             };
+
+            // ========================================================
+            // ADDED: embed ClientId when present.
+            // ========================================================
+
+            if (!string.IsNullOrWhiteSpace(clientId))
+            {
+                claims.Add(new Claim("ClientId", clientId));
+            }
 
             var expiration = DateTime.UtcNow.AddMinutes(expiryMinutes);
 

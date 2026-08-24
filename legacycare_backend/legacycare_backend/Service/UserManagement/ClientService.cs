@@ -93,7 +93,7 @@ namespace PolicyManagement.Service.UserManagement
             client.User.Role = UserRole.Client;
             client.User.IsActive = true;
             client.User.DateCreated = DateTime.UtcNow;
-            client.User.PasswordHash = null;
+            client.User.PasswordHash = string.Empty;
 
             // Generate setup token
             var token = Convert.ToBase64String(

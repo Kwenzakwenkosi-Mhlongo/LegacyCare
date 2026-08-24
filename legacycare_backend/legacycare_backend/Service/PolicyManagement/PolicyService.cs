@@ -15,6 +15,10 @@ namespace PolicyManagement.Service.PolicyManagement
             _context = context;
         }
 
+        // =========================================================
+        // GET ALL POLICIES
+        // =========================================================
+
         public IEnumerable<Policy> GetAllPolicies()
         {
             var policies = _context.Policy
@@ -32,6 +36,10 @@ namespace PolicyManagement.Service.PolicyManagement
             return policies;
         }
 
+        // =========================================================
+        // GET POLICY BY ID
+        // =========================================================
+
         public Policy GetPolicyById(string policyId)
         {
             var policy = _context.Policy
@@ -40,7 +48,11 @@ namespace PolicyManagement.Service.PolicyManagement
                 .FirstOrDefault(p => p.PolicyId == policyId);
 
             if (policy == null)
-                throw new KeyNotFoundException("Policy not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Policy not found."
+                );
+            }
 
             policy.Beneficiaries = _context.Beneficiary
                 .Where(b => b.PolicyId == policyId)
@@ -48,6 +60,10 @@ namespace PolicyManagement.Service.PolicyManagement
 
             return policy;
         }
+
+        // =========================================================
+        // GET POLICIES BY USER
+        // =========================================================
 
         public IEnumerable<Policy> GetPoliciesByUser(string userId)
         {
@@ -67,42 +83,74 @@ namespace PolicyManagement.Service.PolicyManagement
             return policies;
         }
 
+        // =========================================================
+        // CREATE POLICY
+        // =========================================================
+
         public Policy CreatePolicy(Policy policy)
         {
             var user = _context.Users
                 .FirstOrDefault(u => u.UserId == policy.UserId);
 
             if (user == null)
-                throw new KeyNotFoundException("User not found.");
+            {
+                throw new KeyNotFoundException(
+                    "User not found."
+                );
+            }
 
             bool isClient = _context.Users
-                .Any(u => u.UserId == policy.UserId && u.Role == UserRole.Client);
+                .Any(u =>
+                    u.UserId == policy.UserId &&
+                    u.Role == UserRole.Client
+                );
 
             if (!isClient)
-                throw new InvalidOperationException("Policies can only be created for clients.");
+            {
+                throw new InvalidOperationException(
+                    "Policies can only be created for clients."
+                );
+            }
 
             var packageExists = _context.Package
                 .Any(p => p.PackageId == policy.PackageId);
 
             if (!packageExists)
-                throw new KeyNotFoundException("Package not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Package not found."
+                );
+            }
 
             _context.Policy.Add(policy);
+
             _context.SaveChanges();
 
             return policy;
         }
 
-        public Policy UpdatePolicy(string policyId, Policy updatedPolicy)
+        // =========================================================
+        // UPDATE POLICY
+        // =========================================================
+
+        public Policy UpdatePolicy(
+            string policyId,
+            Policy updatedPolicy)
         {
             var policy = GetPolicyById(policyId);
 
-            policy.ChangeStartDate(updatedPolicy.StartDate);
+            policy.ChangeStartDate(
+                updatedPolicy.StartDate
+            );
 
             _context.SaveChanges();
 
             return policy;
         }
+
+        // =========================================================
+        // ACTIVATE
+        // =========================================================
 
         public void ActivatePolicy(string policyId)
         {
@@ -113,6 +161,10 @@ namespace PolicyManagement.Service.PolicyManagement
             _context.SaveChanges();
         }
 
+        // =========================================================
+        // CANCEL
+        // =========================================================
+
         public void CancelPolicy(string policyId)
         {
             var policy = GetPolicyById(policyId);
@@ -121,6 +173,10 @@ namespace PolicyManagement.Service.PolicyManagement
 
             _context.SaveChanges();
         }
+
+        // =========================================================
+        // DISCONTINUE
+        // =========================================================
 
         public void DiscontinuePolicy(string policyId)
         {
@@ -131,16 +187,24 @@ namespace PolicyManagement.Service.PolicyManagement
             _context.SaveChanges();
         }
 
-        public void UpdatePolicyStatus(string policyId, PolicyStatus status)
+        // =========================================================
+        // UPDATE STATUS
+        // =========================================================
+
+        public void UpdatePolicyStatus(
+            string policyId,
+            PolicyStatus status)
         {
             var policy = GetPolicyById(policyId);
 
             policy.Status = status;
 
-            if (status == PolicyStatus.Cancelled ||
+            if (
+                status == PolicyStatus.Cancelled ||
                 status == PolicyStatus.Discontinued ||
                 status == PolicyStatus.Expired ||
-                status == PolicyStatus.Lapsed)
+                status == PolicyStatus.Lapsed
+            )
             {
                 policy.EndDate = DateTime.Now;
             }
@@ -148,21 +212,37 @@ namespace PolicyManagement.Service.PolicyManagement
             _context.SaveChanges();
         }
 
-        public ChangePolicyResult ChangePolicyPackage(string currentPolicyId, string newPackageId)
+        // =========================================================
+        // CHANGE POLICY PACKAGE
+        // =========================================================
+
+        public ChangePolicyResult ChangePolicyPackage(
+            string currentPolicyId,
+            string newPackageId)
         {
-            var currentPolicy = GetPolicyById(currentPolicyId);
+            var currentPolicy =
+                GetPolicyById(currentPolicyId);
 
             var newPackage = _context.Package
-                .FirstOrDefault(p => p.PackageId == newPackageId);
+                .FirstOrDefault(
+                    p => p.PackageId == newPackageId
+                );
 
             if (newPackage == null)
-                throw new KeyNotFoundException("New package not found.");
+            {
+                throw new KeyNotFoundException(
+                    "New package not found."
+                );
+            }
 
             var beneficiaries = _context.Beneficiary
-                .Where(b => b.PolicyId == currentPolicyId)
+                .Where(
+                    b => b.PolicyId == currentPolicyId
+                )
                 .ToList();
 
             currentPolicy.Discontinue();
+
             _context.SaveChanges();
 
             var newPolicy = new Policy
@@ -174,22 +254,31 @@ namespace PolicyManagement.Service.PolicyManagement
             };
 
             _context.Policy.Add(newPolicy);
+
             _context.SaveChanges();
 
             int copiedCount = 0;
+
             foreach (var beneficiary in beneficiaries)
             {
                 var newBeneficiary = new Beneficiary
                 {
                     FullName = beneficiary.FullName,
                     IDNumber = beneficiary.IDNumber,
+                    DateOfBirth = beneficiary.DateOfBirth,
+                    Gender = beneficiary.Gender,
                     Relationship = beneficiary.Relationship,
                     Status = beneficiary.Status,
                     PolicyId = newPolicy.PolicyId
                 };
-                _context.Beneficiary.Add(newBeneficiary);
+
+                _context.Beneficiary.Add(
+                    newBeneficiary
+                );
+
                 copiedCount++;
             }
+
             _context.SaveChanges();
 
             return new ChangePolicyResult
@@ -203,20 +292,36 @@ namespace PolicyManagement.Service.PolicyManagement
             };
         }
 
-        public void ChangePackage(string policyId, string packageId)
+        // =========================================================
+        // CHANGE PACKAGE
+        // =========================================================
+
+        public void ChangePackage(
+            string policyId,
+            string packageId)
         {
             var policy = GetPolicyById(policyId);
 
             var packageExists = _context.Package
-                .Any(p => p.PackageId == packageId);
+                .Any(
+                    p => p.PackageId == packageId
+                );
 
             if (!packageExists)
-                throw new KeyNotFoundException("Package not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Package not found."
+                );
+            }
 
             policy.ChangePackage(packageId);
 
             _context.SaveChanges();
         }
+
+        // =========================================================
+        // DELETE POLICY
+        // =========================================================
 
         public void DeletePolicy(string policyId)
         {
@@ -227,29 +332,61 @@ namespace PolicyManagement.Service.PolicyManagement
             _context.SaveChanges();
         }
 
-        public void AddBeneficiary(string policyId, Beneficiary beneficiary)
+        // =========================================================
+        // ADD BENEFICIARY
+        // =========================================================
+
+        public void AddBeneficiary(
+            string policyId,
+            Beneficiary beneficiary)
         {
             var policy = _context.Policy
-                .FirstOrDefault(p => p.PolicyId == policyId);
+                .FirstOrDefault(
+                    p => p.PolicyId == policyId
+                );
 
             if (policy == null)
-                throw new KeyNotFoundException("Policy not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Policy not found."
+                );
+            }
 
             beneficiary.PolicyId = policyId;
 
-            _context.Beneficiary.Add(beneficiary);
+            _context.Beneficiary.Add(
+                beneficiary
+            );
+
             _context.SaveChanges();
         }
 
-        public void RemoveBeneficiary(string policyId, string beneficiaryId)
+        // =========================================================
+        // REMOVE BENEFICIARY
+        // =========================================================
+
+        public void RemoveBeneficiary(
+            string policyId,
+            string beneficiaryId)
         {
             var beneficiary = _context.Beneficiary
-                .FirstOrDefault(b => b.BeneficiaryId == beneficiaryId && b.PolicyId == policyId);
+                .FirstOrDefault(
+                    b =>
+                        b.BeneficiaryId == beneficiaryId &&
+                        b.PolicyId == policyId
+                );
 
             if (beneficiary == null)
-                throw new KeyNotFoundException("Beneficiary not found.");
+            {
+                throw new KeyNotFoundException(
+                    "Beneficiary not found."
+                );
+            }
 
-            _context.Beneficiary.Remove(beneficiary);
+            _context.Beneficiary.Remove(
+                beneficiary
+            );
+
             _context.SaveChanges();
         }
     }

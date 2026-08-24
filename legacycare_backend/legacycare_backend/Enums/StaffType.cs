@@ -7,6 +7,7 @@ namespace PolicyManagement.Enums
         Driver,
         GraveDigger,
         MortuaryAttendant,
-        OnSiteStaff
+        OnSiteStaff,
+        FuneralDirector 
     }
 }

@@ -1,36 +1,44 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using PolicyManagement.Data;
-using PolicyManagement.Enums;
+using PolicyManagement.Service.DashboardManagement;
 
 namespace PolicyManagement.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DashboardController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IDashboardService _dashboardService;
 
-        public DashboardController(AppDbContext context)
+        public DashboardController(IDashboardService dashboardService)
         {
-            _context = context;
+            _dashboardService = dashboardService;
         }
+
+
+        // =====================================================
+        // ADMIN DASHBOARD
+        // GET: /api/Dashboard
+        // =====================================================
+
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public IActionResult GetDashboard()
+        {
+            return Ok(_dashboardService.GetDashboardData());
+        }
+
+
+        // =====================================================
+        // PROFILE STATS
+        // GET: /api/Dashboard/stats
+        // =====================================================
 
         [HttpGet("stats")]
-        public IActionResult GetStats()
+        public IActionResult GetDashboardStats()
         {
-            var stats = new
-            {
-                totalClients = _context.Users.Count(u => u.Role == UserRole.Client),
-                totalStaff = _context.Users.Count(u => u.Role == UserRole.Staff),
-                totalEvents = _context.Event.Count(),
-                totalTasks = _context.Task.Count(),
-                totalPolicies = _context.Policy.Count(),
-                totalPayments = _context.Payment.Count()
-            };
-
-            return Ok(stats);
+            return Ok(_dashboardService.GetDashboardStats());
         }
     }
-} 
+}
