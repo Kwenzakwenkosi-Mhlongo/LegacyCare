@@ -1,60 +1,54 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// src/services/auth.ts
 
-const USER_KEY = "loggedInUser";
-const TOKEN_KEY = "authToken";
+import {
+  clearAuth,
+  getToken as getRootToken,
+  getStoredUser,
+  saveAuth,
+} from "../../services/auth";
 
-export const saveUser = async (user: any) => {
-  try {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
-  } catch (error) {
-    console.log("Save user error:", error);
+export async function saveUser(
+  user: any
+): Promise<void> {
+  const token =
+    await getRootToken();
+
+  if (!token) {
+    throw new Error(
+      "Cannot save user without an authentication token."
+    );
   }
-};
 
-export const getUser = async () => {
-  try {
-    const user = await AsyncStorage.getItem(USER_KEY);
-    if (user) {
-      return JSON.parse(user);
-    }
-    return null;
-  } catch (error) {
-    console.log("Get user error:", error);
-    return null;
-  }
-};
+  await saveAuth(
+    token,
+    user
+  );
+}
 
-export const removeUser = async () => {
-  try {
-    await AsyncStorage.removeItem(USER_KEY);
-    await AsyncStorage.removeItem(TOKEN_KEY);
-  } catch (error) {
-    console.log("Remove user error:", error);
-  }
-};
+export async function getUser(): Promise<any | null> {
+  return getStoredUser();
+}
 
-export const saveToken = async (token: string) => {
-  try {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
-  } catch (error) {
-    console.log("Save token error:", error);
-  }
-};
+export async function removeUser(): Promise<void> {
+  await clearAuth();
+}
 
-export const getToken = async () => {
-  try {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
-    return token;
-  } catch (error) {
-    console.log("Get token error:", error);
-    return null;
-  }
-};
+export async function saveToken(
+  token: string
+): Promise<void> {
+  const user =
+    await getStoredUser();
 
-export const removeToken = async () => {
-  try {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-  } catch (error) {
-    console.log("Remove token error:", error);
-  }
-};
+  await saveAuth(
+    token,
+    user
+  );
+}
+
+export async function getToken(): Promise<string | null> {
+  return getRootToken();
+}
+
+export async function removeToken(): Promise<void> {
+  await clearAuth();
+}

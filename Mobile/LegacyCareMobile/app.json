@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "legacycaremobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -18,7 +17,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.LegacyCareMobile"
     },
@@ -46,10 +44,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "c293ad28-a773-4c22-ad3f-7b6e028019cc"
-      }
+      "router": {}
     }
   }
 }

@@ -1,35 +1,36 @@
+// File: src/screens/Clerk/ClerkDashboardScreen.tsx
+
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
-    RefreshControl,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { apiRequest } from "../../../services/api";
+import {
+  FuneralRequestDetails,
+  getPendingFuneralRequests,
+} from "../../../services/funeralRequest";
 
 import { useAuth } from "../../context/AuthContext";
-import API_URL from "../../services/api";
-import { getToken } from "../../services/auth";
 import Colors from "../../theme/colors";
-import Typography from "../../theme/typography";
 
-interface FuneralRequest {
-  funeralRequestId?: string;
-  id?: string;
-  status?: string;
-  funeralDate?: string;
-  funeralTime?: string;
-  venue?: string;
-  funeralType?: string;
-  notes?: string;
-}
-
-interface Appointment {
+type Appointment = {
   appointmentId?: string;
   id?: string;
   title?: string;
@@ -37,234 +38,335 @@ interface Appointment {
   appointmentDate?: string;
   appointmentTime?: string;
   venue?: string;
-}
+};
 
-const quickActions = [
-  {
-    id: 1,
-    title: "Funeral Requests",
-    icon: "flower-outline",
-    route: "/(clerk)/funeral-requests",
-  },
-  {
-    id: 2,
-    title: "Appointments",
-    icon: "calendar-outline",
-    route: "/(clerk)/appointments",
-  },
-  {
-    id: 3,
-    title: "Deploy Staff",
-    icon: "people-outline",
-    route: "/(clerk)/funeral-requests",
-  },
-  {
-    id: 4,
-    title: "Profile",
-    icon: "person-outline",
-    route: "/(clerk)/profile",
-  },
-];
+type RequestCardConfig = {
+  id: string;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  active: boolean;
+  route?: string;
+  count?: number;
+};
+
+function normalizeStatus(
+  value?: string | null
+): string {
+  return (value || "")
+    .trim()
+    .toLowerCase();
+}
 
 export default function ClerkDashboardScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { width } =
+    useWindowDimensions();
 
-  const [funeralRequests, setFuneralRequests] = useState<
-    FuneralRequest[]
-  >([]);
+  const insets =
+    useSafeAreaInsets();
 
-  const [appointments, setAppointments] = useState<
-    Appointment[]
-  >([]);
+  const isSmallPhone =
+    width < 390;
 
-  const getAuthHeaders = async (): Promise<HeadersInit> => {
-    const token = await getToken();
+  const horizontalPadding =
+    isSmallPhone
+      ? 16
+      : 20;
 
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    return headers;
-  };
-
-  useEffect(() => {
-    if (user) {
-      loadDashboard();
-    }
-  }, [user]);
-
-  const loadDashboard = async () => {
-    setLoading(true);
-
-    try {
-      const headers = await getAuthHeaders();
-
-      /*
-       * ============================================================
-       * FUNERAL REQUESTS
-       * ============================================================
-       *
-       * Adjust this endpoint only if your backend controller
-       * uses a different route.
-       */
-
-      const funeralResponse = await fetch(
-        `${API_URL}/FuneralRequest`,
-        {
-          headers,
-        }
-      );
-
-      if (funeralResponse.ok) {
-        const funeralData =
-          await funeralResponse.json();
-
-        if (Array.isArray(funeralData)) {
-          setFuneralRequests(funeralData);
-        }
-      } else {
-        console.log(
-          "Funeral requests response:",
-          funeralResponse.status
-        );
-      }
-
-      /*
-       * ============================================================
-       * APPOINTMENTS
-       * ============================================================
-       */
-
-      const appointmentResponse = await fetch(
-        `${API_URL}/Appointment`,
-        {
-          headers,
-        }
-      );
-
-      if (appointmentResponse.ok) {
-        const appointmentData =
-          await appointmentResponse.json();
-
-        if (Array.isArray(appointmentData)) {
-          setAppointments(appointmentData);
-        }
-      } else {
-        console.log(
-          "Appointments response:",
-          appointmentResponse.status
-        );
-      }
-    } catch (error) {
-      console.log(
-        "Clerk dashboard load failed:",
-        error
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboard();
-  };
-
-  const navigateTo = (route: string) => {
-    router.push(route as any);
-  };
-
-  /*
-   * ============================================================
-   * COUNTS
-   * ============================================================
-   */
-
-  const pendingFuneralRequests =
-    funeralRequests.filter(
-      (request) =>
-        request.status?.toLowerCase() ===
-        "pending"
+  const contentWidth =
+    Math.min(
+      width,
+      720
     );
 
-  const approvedFuneralRequests =
-    funeralRequests.filter(
-      (request) =>
-        request.status?.toLowerCase() ===
-        "approved"
+  const [
+    refreshing,
+    setRefreshing,
+  ] =
+    useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    funeralRequests,
+    setFuneralRequests,
+  ] =
+    useState<
+      FuneralRequestDetails[]
+    >([]);
+
+  const [
+    appointments,
+    setAppointments,
+  ] =
+    useState<
+      Appointment[]
+    >([]);
+
+  const [
+    dashboardError,
+    setDashboardError,
+  ] =
+    useState("");
+
+  const loadDashboard =
+    useCallback(
+      async (): Promise<void> => {
+        try {
+          setLoading(true);
+          setDashboardError("");
+
+          const results =
+            await Promise.allSettled([
+              getPendingFuneralRequests(),
+
+              apiRequest<
+                Appointment[]
+              >(
+                "/Appointment"
+              ),
+            ]);
+
+          const funeralResult =
+            results[0];
+
+          const appointmentResult =
+            results[1];
+
+          if (
+            funeralResult.status ===
+            "fulfilled"
+          ) {
+            setFuneralRequests(
+              Array.isArray(
+                funeralResult.value
+              )
+                ? funeralResult.value
+                : []
+            );
+          } else {
+            console.log(
+              "[CLERK DASHBOARD] FUNERALS ERROR:",
+              funeralResult.reason
+            );
+
+            setFuneralRequests(
+              []
+            );
+
+            setDashboardError(
+              funeralResult.reason instanceof
+                Error
+                ? funeralResult.reason.message
+                : "Unable to load funeral requests."
+            );
+          }
+
+          if (
+            appointmentResult.status ===
+            "fulfilled"
+          ) {
+            setAppointments(
+              Array.isArray(
+                appointmentResult.value
+              )
+                ? appointmentResult.value
+                : []
+            );
+          } else {
+            setAppointments(
+              []
+            );
+
+            console.log(
+              "[CLERK DASHBOARD] APPOINTMENTS ENDPOINT:",
+              appointmentResult.reason
+            );
+          }
+        } catch (error) {
+          console.log(
+            "[CLERK DASHBOARD] ERROR:",
+            error
+          );
+
+          setDashboardError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load dashboard."
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      },
+      []
+    );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        void loadDashboard();
+      }
+    }, [
+      user,
+      loadDashboard,
+    ])
+  );
+
+  const onRefresh =
+    async (): Promise<void> => {
+      setRefreshing(true);
+
+      await loadDashboard();
+    };
+
+  const navigateTo = (
+    route: string
+  ): void => {
+    router.push(
+      route as never
+    );
+  };
+
+  const pendingFuneralRequests =
+    useMemo(
+      () =>
+        funeralRequests.filter(
+          (request) =>
+            normalizeStatus(
+              request.status
+            ) === "pending"
+        ),
+      [
+        funeralRequests,
+      ]
     );
 
   const pendingAppointments =
-    appointments.filter(
-      (appointment) =>
-        appointment.status?.toLowerCase() ===
-        "pending"
+    useMemo(
+      () =>
+        appointments.filter(
+          (appointment) =>
+            normalizeStatus(
+              appointment.status
+            ) === "pending"
+        ),
+      [
+        appointments,
+      ]
     );
 
-  /*
-   * ============================================================
-   * UPCOMING FUNERALS
-   * ============================================================
-   */
+  const requestCards =
+    useMemo<
+      RequestCardConfig[]
+    >(
+      () => [
+        {
+          id: "funeral",
+          title:
+            "Funeral Requests",
+          icon:
+            "flower-outline",
+          active: true,
+          route:
+            "/(clerk)/funerals-requests",
+          count:
+            pendingFuneralRequests.length,
+        },
+        {
+          id: "appointments",
+          title:
+            "Appointments",
+          icon:
+            "calendar-outline",
+          active: true,
+          route:
+            "/(clerk)/appointments",
+          count:
+            pendingAppointments.length,
+        },
+        {
+          id: "quote",
+          title:
+            "Quote Requests",
+          icon:
+            "document-text-outline",
+          active: false,
+        },
+        {
+          id: "beneficiary",
+          title:
+            "Beneficiary Requests",
+          icon:
+            "people-outline",
+          active: false,
+        },
+        {
+          id: "policy",
+          title:
+            "Policy Enquiries",
+          icon:
+            "shield-checkmark-outline",
+          active: false,
+        },
+        {
+          id: "payment",
+          title:
+            "Payment Enquiries",
+          icon:
+            "card-outline",
+          active: false,
+        },
+        {
+          id: "documents",
+          title:
+            "Document Requests",
+          icon:
+            "folder-open-outline",
+          active: false,
+        },
+        {
+          id: "support",
+          title:
+            "General Support",
+          icon:
+            "help-circle-outline",
+          active: false,
+        },
+      ],
+      [
+        pendingFuneralRequests.length,
+        pendingAppointments.length,
+      ]
+    );
 
-  const upcomingFunerals =
-    funeralRequests
-      .filter((request) => {
-        if (!request.funeralDate) {
-          return false;
-        }
-
-        const funeralDate =
-          new Date(request.funeralDate);
-
-        return (
-          funeralDate >= new Date() &&
-          request.status?.toLowerCase() ===
-            "approved"
+  const handleCardPress =
+    (
+      card:
+        RequestCardConfig
+    ): void => {
+      if (
+        card.active &&
+        card.route
+      ) {
+        navigateTo(
+          card.route
         );
-      })
-      .sort(
-        (a, b) =>
-          new Date(
-            a.funeralDate!
-          ).getTime() -
-          new Date(
-            b.funeralDate!
-          ).getTime()
-      );
 
-  const formatDate = (
-    dateString?: string
-  ) => {
-    if (!dateString) {
-      return "Date not available";
-    }
-
-    const date =
-      new Date(dateString);
-
-    if (isNaN(date.getTime())) {
-      return "Date not available";
-    }
-
-    return date.toLocaleDateString(
-      "en-ZA",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+        return;
       }
-    );
-  };
+
+      Alert.alert(
+        "Coming Soon",
+        `${card.title} will be available soon.`
+      );
+    };
 
   return (
     <LinearGradient
@@ -272,763 +374,636 @@ export default function ClerkDashboardScreen() {
         Colors.primary,
         Colors.secondary,
       ]}
-      style={styles.container}
+      style={
+        styles.container
+      }
     >
       <StatusBar
         barStyle="light-content"
-        backgroundColor={Colors.primary}
+        backgroundColor={
+          Colors.primary
+        }
       />
 
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop:
+              Math.max(
+                insets.top,
+                12
+              ),
+
+            paddingBottom:
+              30 +
+              insets.bottom,
+          },
+        ]}
+        showsVerticalScrollIndicator={
+          false
+        }
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.gold}
+            refreshing={
+              refreshing
+            }
+            onRefresh={
+              onRefresh
+            }
+            tintColor={
+              Colors.gold
+            }
           />
         }
       >
-        {/* ======================================================
-            HEADER
-        ====================================================== */}
-
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              Welcome back,
-            </Text>
-
-            <Text style={styles.userName}>
-              {user?.fullName ?? "Clerk"}
-            </Text>
-
-            <Text style={styles.roleText}>
-              Clerk
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.notificationIcon}
-            onPress={() => {}}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={28}
-              color={Colors.white}
-            />
-
-            <View
-              style={styles.notificationBadge}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* ======================================================
-            SUMMARY CARDS
-        ====================================================== */}
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statsRow}>
-
-            <View
-              style={[
-                styles.statCard,
-                { marginRight: 12 },
-              ]}
-            >
-              <Ionicons
-                name="flower-outline"
-                size={24}
-                color={Colors.gold}
-              />
-
-              <Text style={styles.statValue}>
-                {pendingFuneralRequests.length}
-              </Text>
-
-              <Text style={styles.statLabel}>
-                Pending Funerals
-              </Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={24}
-                color={Colors.info}
-              />
-
-              <Text style={styles.statValue}>
-                {approvedFuneralRequests.length}
-              </Text>
-
-              <Text style={styles.statLabel}>
-                Approved Funerals
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.statsRow}>
-
-            <View
-              style={[
-                styles.statCard,
-                { marginRight: 12 },
-              ]}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={24}
-                color={Colors.info}
-              />
-
-              <Text style={styles.statValue}>
-                {pendingAppointments.length}
-              </Text>
-
-              <Text style={styles.statLabel}>
-                Pending Appointments
-              </Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <Ionicons
-                name="people-outline"
-                size={24}
-                color={Colors.gold}
-              />
-
-              <Text style={styles.statValue}>
-                {upcomingFunerals.length}
-              </Text>
-
-              <Text style={styles.statLabel}>
-                Upcoming Funerals
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ======================================================
-            QUICK ACTIONS
-        ====================================================== */}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Quick Actions
-          </Text>
-
-          <View style={styles.actionsGrid}>
-            {quickActions.map(
-              (action) => (
-                <TouchableOpacity
-                  key={action.id}
-                  style={styles.actionCard}
-                  onPress={() =>
-                    navigateTo(
-                      action.route
-                    )
-                  }
-                >
-                  <View
-                    style={
-                      styles.actionIcon
-                    }
-                  >
-                    <Ionicons
-                      name={
-                        action.icon as any
-                      }
-                      size={28}
-                      color={Colors.gold}
-                    />
-                  </View>
-
-                  <Text
-                    style={
-                      styles.actionTitle
-                    }
-                  >
-                    {action.title}
-                  </Text>
-                </TouchableOpacity>
-              )
-            )}
-          </View>
-        </View>
-
-        {/* ======================================================
-            PENDING FUNERAL REQUESTS
-        ====================================================== */}
-
-        <View style={styles.section}>
-          <View
-            style={
-              styles.sectionHeader
-            }
-          >
-            <Text
-              style={
-                styles.sectionTitle
-              }
-            >
-              Pending Funeral Requests
-            </Text>
-
-            <TouchableOpacity
-              onPress={() =>
-                navigateTo(
-                  "/(clerk)/funeral-requests"
-                )
-              }
-            >
-              <Text
-                style={styles.viewAllText}
-              >
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? (
-            <Text
-              style={styles.emptyText}
-            >
-              Loading requests...
-            </Text>
-          ) : pendingFuneralRequests.length ===
-            0 ? (
-            <View
-              style={
-                styles.emptyCard
-              }
-            >
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={32}
-                color={Colors.info}
-              />
-
-              <Text
-                style={
-                  styles.emptyText
-                }
-              >
-                No pending funeral requests
-              </Text>
-            </View>
-          ) : (
-            pendingFuneralRequests
-              .slice(0, 3)
-              .map(
-                (
-                  request,
-                  index
-                ) => (
-                  <TouchableOpacity
-                    key={
-                      request.funeralRequestId ??
-                      request.id ??
-                      index
-                    }
-                    style={
-                      styles.requestCard
-                    }
-                    onPress={() =>
-                      navigateTo(
-                        `/(clerk)/funeral-requests/${
-                          request.funeralRequestId ??
-                          request.id
-                        }`
-                      )
-                    }
-                  >
-                    <View
-                      style={
-                        styles.requestIcon
-                      }
-                    >
-                      <Ionicons
-                        name="flower-outline"
-                        size={24}
-                        color={
-                          Colors.gold
-                        }
-                      />
-                    </View>
-
-                    <View
-                      style={
-                        styles.requestInfo
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.requestTitle
-                        }
-                      >
-                        Funeral Request
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.requestVenue
-                        }
-                      >
-                        {request.venue ??
-                          "Venue not specified"}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.requestDate
-                        }
-                      >
-                        {formatDate(
-                          request.funeralDate
-                        )}
-                      </Text>
-                    </View>
-
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={
-                        Colors.textMuted
-                      }
-                    />
-                  </TouchableOpacity>
-                )
-              )
-          )}
-        </View>
-
-        {/* ======================================================
-            UPCOMING FUNERALS
-        ====================================================== */}
-
         <View
           style={[
-            styles.section,
-            styles.lastSection,
+            styles.content,
+            {
+              width:
+                contentWidth,
+
+              paddingHorizontal:
+                horizontalPadding,
+            },
           ]}
         >
           <View
             style={
-              styles.sectionHeader
+              styles.header
             }
           >
-            <Text
+            <View
               style={
-                styles.sectionTitle
-              }
-            >
-              Upcoming Funerals
-            </Text>
-
-            <TouchableOpacity
-              onPress={() =>
-                navigateTo(
-                  "/(clerk)/funeral-requests"
-                )
+                styles.headerText
               }
             >
               <Text
-                style={styles.viewAllText}
+                style={[
+                  styles.greeting,
+                  isSmallPhone &&
+                    styles.greetingSmall,
+                ]}
               >
-                View All
+                Welcome back,
               </Text>
+
+              <Text
+                style={[
+                  styles.userName,
+                  isSmallPhone &&
+                    styles.userNameSmall,
+                ]}
+                numberOfLines={
+                  1
+                }
+              >
+                {user?.fullName ??
+                  "Clerk"}
+              </Text>
+
+              <Text
+                style={
+                  styles.roleText
+                }
+              >
+                Clerk
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={
+                styles.notificationButton
+              }
+              activeOpacity={
+                0.8
+              }
+              onPress={() => {
+                Alert.alert(
+                  "Notifications",
+                  "Notifications will be available soon."
+                );
+              }}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={
+                  isSmallPhone
+                    ? 24
+                    : 27
+                }
+                color={
+                  Colors.white
+                }
+              />
+
+              {pendingFuneralRequests.length >
+              0 ? (
+                <View
+                  style={
+                    styles.notificationBadge
+                  }
+                />
+              ) : null}
             </TouchableOpacity>
           </View>
 
-          {upcomingFunerals.length ===
-          0 ? (
-            <Text
+          {dashboardError ? (
+            <View
               style={
-                styles.emptyText
+                styles.errorBanner
               }
             >
-              No upcoming funerals
-            </Text>
-          ) : (
-            upcomingFunerals
-              .slice(0, 3)
-              .map(
-                (
-                  funeral,
-                  index
-                ) => {
-                  const date =
-                    funeral.funeralDate
-                      ? new Date(
-                          funeral.funeralDate
-                        )
-                      : null;
+              <Ionicons
+                name="alert-circle-outline"
+                size={18}
+                color="#FCA5A5"
+              />
 
-                  return (
-                    <TouchableOpacity
-                      key={
-                        funeral.funeralRequestId ??
-                        funeral.id ??
-                        index
-                      }
-                      style={
-                        styles.eventCard
-                      }
-                      onPress={() =>
-                        navigateTo(
-                          `/(clerk)/funeral-requests/${
-                            funeral.funeralRequestId ??
-                            funeral.id
-                          }`
-                        )
-                      }
-                    >
-                      <View
-                        style={
-                          styles.eventDate
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.eventDay
-                          }
-                        >
-                          {date
-                            ? date.getDate()
-                            : "-"}
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.eventMonth
-                          }
-                        >
-                          {date
-                            ? date.toLocaleString(
-                                "en-US",
-                                {
-                                  month:
-                                    "short",
-                                }
-                              )
-                            : "---"}
-                        </Text>
-                      </View>
-
-                      <View
-                        style={
-                          styles.eventInfo
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.eventTitle
-                          }
-                        >
-                          {funeral.funeralType ??
-                            "Funeral"}
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.eventTime
-                          }
-                        >
-                          {funeral.venue ??
-                            "Venue not specified"}
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.eventStatus
-                          }
-                        >
-                          Approved
-                        </Text>
-                      </View>
-
-                      <Ionicons
-                        name="chevron-forward"
-                        size={20}
-                        color={
-                          Colors.textMuted
-                        }
-                      />
-                    </TouchableOpacity>
-                  );
+              <Text
+                style={
+                  styles.errorText
                 }
+              >
+                {
+                  dashboardError
+                }
+              </Text>
+            </View>
+          ) : null}
+
+          <View
+            style={
+              styles.sectionHeader
+            }
+          >
+            <View>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  isSmallPhone &&
+                    styles.sectionTitleSmall,
+                ]}
+              >
+                My Requests
+              </Text>
+
+              <Text
+                style={
+                  styles.sectionSubtitle
+                }
+              >
+                Manage service requests
+              </Text>
+            </View>
+
+            {loading ? (
+              <Text
+                style={
+                  styles.loadingText
+                }
+              >
+                Loading...
+              </Text>
+            ) : null}
+          </View>
+
+          <View
+            style={
+              styles.cardsGrid
+            }
+          >
+            {requestCards.map(
+              (card) => (
+                <RequestMetricCard
+                  key={
+                    card.id
+                  }
+                  card={
+                    card
+                  }
+                  compact={
+                    isSmallPhone
+                  }
+                  onPress={() =>
+                    handleCardPress(
+                      card
+                    )
+                  }
+                />
               )
-          )}
+            )}
+          </View>
         </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+function RequestMetricCard({
+  card,
+  compact,
+  onPress,
+}: {
+  card:
+    RequestCardConfig;
+  compact:
+    boolean;
+  onPress:
+    () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.metricCard,
+        compact &&
+          styles.metricCardSmall,
+        !card.active &&
+          styles.metricCardComingSoon,
+      ]}
+      activeOpacity={
+        0.78
+      }
+      onPress={
+        onPress
+      }
+    >
+      <View
+        style={
+          styles.cardTopRow
+        }
+      >
+        <View
+          style={[
+            styles.iconContainer,
+            !card.active &&
+              styles.iconContainerInactive,
+          ]}
+        >
+          <Ionicons
+            name={
+              card.icon
+            }
+            size={
+              compact
+                ? 23
+                : 27
+            }
+            color={
+              card.active
+                ? Colors.gold
+                : Colors.textMuted
+            }
+          />
+        </View>
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
+        {card.active ? (
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={
+              Colors.textMuted
+            }
+          />
+        ) : (
+          <View
+            style={
+              styles.comingSoonBadge
+            }
+          >
+            <Text
+              style={
+                styles.comingSoonText
+              }
+            >
+              Soon
+            </Text>
+          </View>
+        )}
+      </View>
 
-  greeting: {
-    fontSize:
-      Typography.body.fontSize,
-    color: Colors.textSecondary,
-  },
+      {card.active ? (
+        <Text
+          style={[
+            styles.metricValue,
+            compact &&
+              styles.metricValueSmall,
+          ]}
+        >
+          {card.count ??
+            0}
+        </Text>
+      ) : (
+        <Text
+          style={[
+            styles.metricValue,
+            styles.inactiveValue,
+            compact &&
+              styles.metricValueSmall,
+          ]}
+        >
+          —
+        </Text>
+      )}
 
-  userName: {
-    fontSize:
-      Typography.heading.fontSize,
-    fontWeight:
-      Typography.heading.fontWeight,
-    color: Colors.white,
-    marginTop: 2,
-  },
+      <Text
+        style={[
+          styles.metricLabel,
+          !card.active &&
+            styles.metricLabelInactive,
+          compact &&
+            styles.metricLabelSmall,
+        ]}
+        numberOfLines={
+          2
+        }
+      >
+        {card.title}
+      </Text>
 
-  roleText: {
-    fontSize: 12,
-    color: Colors.gold,
-    marginTop: 4,
-    fontWeight: "600",
-  },
+      <Text
+        style={[
+          styles.cardStatus,
+          card.active
+            ? styles.cardStatusActive
+            : styles.cardStatusInactive,
+        ]}
+      >
+        {card.active
+          ? "Open requests"
+          : "Coming soon"}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
-  notificationIcon: {
-    position: "relative",
-    padding: 8,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
 
-  notificationBadge: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor:
-      Colors.danger,
-    borderWidth: 2,
-    borderColor:
-      Colors.primary,
-  },
+    scrollContent: {
+      flexGrow: 1,
+      alignItems:
+        "center",
+    },
 
-  statsContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 20,
-  },
+    content: {
+      alignSelf:
+        "center",
+    },
 
-  statsRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-  },
+    header: {
+      flexDirection:
+        "row",
+      justifyContent:
+        "space-between",
+      alignItems:
+        "center",
+      marginTop: 10,
+      marginBottom: 28,
+    },
 
-  statCard: {
-    flex: 1,
-    backgroundColor:
-      Colors.cardBackground,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
+    headerText: {
+      flex: 1,
+      paddingRight: 12,
+    },
 
-  statValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: Colors.white,
-    marginTop: 8,
-    marginBottom: 2,
-  },
+    greeting: {
+      fontSize: 16,
+      color:
+        Colors.textSecondary,
+    },
 
-  statLabel: {
-    fontSize:
-      Typography.caption.fontSize,
-    color: Colors.textMuted,
-  },
+    greetingSmall: {
+      fontSize: 13,
+    },
 
-  section: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
+    userName: {
+      marginTop: 2,
+      fontSize: 28,
+      lineHeight: 34,
+      fontWeight: "700",
+      color: Colors.white,
+    },
 
-  lastSection: {
-    paddingBottom: 40,
-  },
+    userNameSmall: {
+      fontSize: 24,
+      lineHeight: 29,
+    },
 
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
+    roleText: {
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: "600",
+      color: Colors.gold,
+    },
 
-  sectionTitle: {
-    fontSize:
-      Typography.subHeading.fontSize,
-    fontWeight:
-      Typography.subHeading.fontWeight,
-    color: Colors.white,
-    marginBottom: 16,
-  },
+    notificationButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems:
+        "center",
+      justifyContent:
+        "center",
+      position:
+        "relative",
+    },
 
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -6,
-  },
+    notificationBadge: {
+      position:
+        "absolute",
+      top: 7,
+      right: 7,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor:
+        Colors.danger,
+    },
 
-  actionCard: {
-    width: "25%",
-    paddingHorizontal: 6,
-    marginBottom: 12,
-  },
+    errorBanner: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      padding: 11,
+      borderRadius: 10,
+      marginBottom: 18,
+      backgroundColor:
+        "rgba(220,38,38,0.15)",
+    },
 
-  actionIcon: {
-    backgroundColor:
-      Colors.cardBackground,
-    padding: 14,
-    borderRadius: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 8,
-  },
+    errorText: {
+      flex: 1,
+      marginLeft: 8,
+      fontSize: 12,
+      color: "#FCA5A5",
+    },
 
-  actionTitle: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    fontWeight: "500",
-  },
+    sectionHeader: {
+      flexDirection:
+        "row",
+      alignItems:
+        "flex-end",
+      justifyContent:
+        "space-between",
+      marginBottom: 18,
+    },
 
-  requestCard: {
-    backgroundColor:
-      Colors.cardBackground,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
+    sectionTitle: {
+      fontSize: 24,
+      lineHeight: 30,
+      fontWeight: "700",
+      color: Colors.white,
+    },
 
-  requestIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor:
-      Colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 14,
-  },
+    sectionTitleSmall: {
+      fontSize: 21,
+      lineHeight: 27,
+    },
 
-  requestInfo: {
-    flex: 1,
-  },
+    sectionSubtitle: {
+      marginTop: 3,
+      fontSize: 12,
+      color:
+        Colors.textMuted,
+    },
 
-  requestTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.white,
-    marginBottom: 3,
-  },
+    loadingText: {
+      fontSize: 11,
+      color:
+        Colors.textMuted,
+    },
 
-  requestVenue: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginBottom: 3,
-  },
+    cardsGrid: {
+      flexDirection:
+        "row",
+      flexWrap:
+        "wrap",
+      justifyContent:
+        "space-between",
+      rowGap: 14,
+    },
 
-  requestDate: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
+    metricCard: {
+      width: "48.4%",
+      minHeight: 172,
+      padding: 16,
+      borderRadius: 19,
+      borderWidth: 1,
+      borderColor:
+        Colors.border,
+      backgroundColor:
+        Colors.cardBackground,
+    },
 
-  emptyCard: {
-    backgroundColor:
-      Colors.cardBackground,
-    padding: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: "center",
-  },
+    metricCardSmall: {
+      minHeight: 158,
+      padding: 14,
+      borderRadius: 17,
+    },
 
-  emptyText: {
-    color: Colors.textMuted,
-    textAlign: "center",
-    paddingVertical: 20,
-    fontSize: 13,
-  },
+    metricCardComingSoon: {
+      opacity: 0.72,
+    },
 
-  eventCard: {
-    backgroundColor:
-      Colors.cardBackground,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
+    cardTopRow: {
+      flexDirection:
+        "row",
+      alignItems:
+        "center",
+      justifyContent:
+        "space-between",
+    },
 
-  eventDate: {
-    alignItems: "center",
-    marginRight: 16,
-    minWidth: 50,
-  },
+    iconContainer: {
+      width: 43,
+      height: 43,
+      borderRadius: 13,
+      alignItems:
+        "center",
+      justifyContent:
+        "center",
+      backgroundColor:
+        Colors.primary,
+    },
 
-  eventDay: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.gold,
-  },
+    iconContainerInactive: {
+      opacity: 0.75,
+    },
 
-  eventMonth: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    textTransform: "uppercase",
-  },
+    comingSoonBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor:
+        Colors.border,
+      backgroundColor:
+        Colors.primary,
+    },
 
-  eventInfo: {
-    flex: 1,
-  },
+    comingSoonText: {
+      fontSize: 9,
+      fontWeight: "700",
+      color:
+        Colors.textMuted,
+    },
 
-  eventTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.white,
-    marginBottom: 2,
-  },
+    metricValue: {
+      marginTop: 18,
+      fontSize: 27,
+      lineHeight: 31,
+      fontWeight: "700",
+      color: Colors.white,
+    },
 
-  eventTime: {
-    fontSize: 12,
-    color: Colors.textMuted,
-  },
+    metricValueSmall: {
+      fontSize: 23,
+      lineHeight: 27,
+    },
 
-  eventStatus: {
-    fontSize: 11,
-    color: Colors.gold,
-    marginTop: 2,
-  },
+    inactiveValue: {
+      color:
+        Colors.textMuted,
+    },
 
-  viewAllText: {
-    color: Colors.gold,
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 16,
-  },
-});
+    metricLabel: {
+      marginTop: 5,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: "600",
+      color: Colors.white,
+    },
+
+    metricLabelSmall: {
+      fontSize: 12,
+      lineHeight: 16,
+    },
+
+    metricLabelInactive: {
+      color:
+        Colors.textSecondary,
+    },
+
+    cardStatus: {
+      marginTop: 6,
+      fontSize: 10,
+      lineHeight: 14,
+      fontWeight: "500",
+    },
+
+    cardStatusActive: {
+      color:
+        Colors.gold,
+    },
+
+    cardStatusInactive: {
+      color:
+        Colors.textMuted,
+    },
+  });

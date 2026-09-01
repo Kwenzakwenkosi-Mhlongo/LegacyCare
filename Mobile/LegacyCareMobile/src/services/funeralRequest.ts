@@ -1,107 +1,56 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// src/services/funeralRequest.ts
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  "http://10.0.2.2:5224/api";
+import {
+  approveFuneralRequest,
+  assignFuneralStaff,
+  getAvailableFuneralStaff,
+  getFuneralRequestById,
+  getPendingFuneralRequests,
+  rejectFuneralRequest,
+} from "../../services/funeralRequest";
 
-async function getToken() {
-  return await AsyncStorage.getItem("TOKEN_KEY");
-}
+export type {
+  AssignFuneralStaffResponse,
+  AvailableFuneralStaffResponse,
+  FuneralRequestDetails,
+  FuneralStaff,
+  FuneralStaffDeployment,
+  ReviewFuneralResponse
+} from "../../services/funeralRequest";
 
-async function apiRequest(
-  endpoint: string,
-  options: RequestInit = {}
-) {
-  const token = await getToken();
-
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-
-      headers: {
-        "Content-Type": "application/json",
-
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
-
-        ...(options.headers || {}),
-      },
-    }
-  );
-
-  const text = await response.text();
-
-  let data: any = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-        "Unable to communicate with the server."
-    );
-  }
-
-  return data;
-}
-
-/*
- * ================================================================
- * GET PENDING FUNERAL REQUESTS
- * ================================================================
- */
-
-export async function getPendingFuneralRequests() {
-  return apiRequest(
-    "/FuneralRequest/clerk/pending"
-  );
-}
-
-/*
- * ================================================================
- * GET FUNERAL REQUEST
- * ================================================================
- */
+export {
+  approveFuneralRequest,
+  assignFuneralStaff,
+  getAvailableFuneralStaff,
+  getFuneralRequestById,
+  getPendingFuneralRequests,
+  rejectFuneralRequest
+};
 
 export async function getFuneralRequest(
   id: string
 ) {
-  return apiRequest(
-    `/FuneralRequest/${id}`
-  );
+  return getFuneralRequestById(id);
 }
-
-/*
- * ================================================================
- * REVIEW FUNERAL REQUEST
- * ================================================================
- */
 
 export async function reviewFuneralRequest(
   id: string,
   action: "Approve" | "Reject",
-  staffRequired: number,
+  staffRequired: number = 4,
   rejectionReason?: string
 ) {
-  return apiRequest(
-    `/FuneralRequest/clerk/${id}/review`,
-    {
-      method: "PUT",
+  if (staffRequired !== 4) {
+    throw new Error(
+      "LegacyCare funeral requests require exactly 4 staff members."
+    );
+  }
 
-      body: JSON.stringify({
-        action,
-        staffRequired,
-        rejectionReason:
-          rejectionReason || null,
-      }),
-    }
+  if (action === "Approve") {
+    return approveFuneralRequest(id);
+  }
+
+  return rejectFuneralRequest(
+    id,
+    rejectionReason ?? ""
   );
 }

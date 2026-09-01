@@ -1,80 +1,212 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { getToken, getUser, removeToken, removeUser, saveToken, saveUser } from "../services/auth";
+// src/context/AuthContext.tsx
 
-interface User {
-    userId: string;
-    fullName: string;
-    email: string;
-    role: string;
+import {
+    createContext,
+    ReactNode,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    clearAuth,
+    getStoredUser,
+    getToken,
+    saveAuth,
+} from "../../services/auth";
+
+export interface User {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: string;
 }
 
 interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-    token: string | null;
-    login: (user: User, token: string) => Promise<void>;
-    logout: () => Promise<void>;
+  user: User | null;
+  loading: boolean;
+  token: string | null;
+
+  login: (
+    user: User,
+    token: string
+  ) => Promise<void>;
+
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+interface AuthProviderProps {
+  children: ReactNode;
+}
 
-export function AuthProvider({ children }: any) {
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
+const AuthContext =
+  createContext<
+    AuthContextType | undefined
+  >(undefined);
 
-    useEffect(() => {
-        loadUser();
-    }, []);
+function isValidStoredUser(
+  value: unknown
+): value is User {
+  if (
+    typeof value !== "object" ||
+    value === null
+  ) {
+    return false;
+  }
 
-    const loadUser = async () => {
-        const storedUser = await getUser();
-        const storedToken = await getToken();
+  const candidate =
+    value as Partial<User>;
 
-        if (storedUser) {
-            setUser(storedUser);
+  return Boolean(
+    candidate.userId?.trim() &&
+      candidate.fullName?.trim() &&
+      candidate.email?.trim() &&
+      candidate.role?.trim()
+  );
+}
+
+export function AuthProvider({
+  children,
+}: AuthProviderProps) {
+  const [
+    user,
+    setUser,
+  ] =
+    useState<User | null>(
+      null
+    );
+
+  const [
+    token,
+    setToken,
+  ] =
+    useState<
+      string | null
+    >(null);
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  useEffect(() => {
+    const loadSession =
+      async (): Promise<void> => {
+        try {
+          const [
+            storedUser,
+            storedToken,
+          ] =
+            await Promise.all([
+              getStoredUser(),
+              getToken(),
+            ]);
+
+          if (
+            storedUser &&
+            storedToken &&
+            isValidStoredUser(
+              storedUser
+            )
+          ) {
+            setUser(
+              storedUser
+            );
+
+            setToken(
+              storedToken
+            );
+
+            return;
+          }
+
+          await clearAuth();
+
+          setUser(null);
+          setToken(null);
+        } catch (error) {
+          console.log(
+            "[AUTH CONTEXT] Failed to restore session:",
+            error
+          );
+
+          setUser(null);
+          setToken(null);
+        } finally {
+          setLoading(
+            false
+          );
         }
-        if (storedToken) {
-            setToken(storedToken);
-        }
-        setLoading(false);
+      };
+
+    void loadSession();
+  }, []);
+
+  const login =
+    async (
+      userData: User,
+      authToken: string
+    ): Promise<void> => {
+      const cleanToken =
+        authToken.trim();
+
+      if (!cleanToken) {
+        throw new Error(
+          "Authentication token is required."
+        );
+      }
+
+      await saveAuth(
+        cleanToken,
+        userData
+      );
+
+      setUser(
+        userData
+      );
+
+      setToken(
+        cleanToken
+      );
     };
 
-    const login = async (userData: User, authToken: string) => {
-        await saveUser(userData);
-        await saveToken(authToken);
-        setUser(userData);
-        setToken(authToken);
-    };
-
-    const logout = async () => {
-        await removeUser();
-        await removeToken();
+  const logout =
+    async (): Promise<void> => {
+      try {
+        await clearAuth();
+      } finally {
         setUser(null);
         setToken(null);
+      }
     };
 
-    return (
-        <AuthContext.Provider
-            value={{
-                user,
-                loading,
-                token,
-                login,
-                logout,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    );
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        token,
+        login,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth() {
-    const context = useContext(AuthContext);
+export function useAuth(): AuthContextType {
+  const context =
+    useContext(
+      AuthContext
+    );
 
-    if (!context) {
-        throw new Error("useAuth must be used inside AuthProvider");
-    }
+  if (!context) {
+    throw new Error(
+      "useAuth must be used inside AuthProvider."
+    );
+  }
 
-    return context;
+  return context;
 }

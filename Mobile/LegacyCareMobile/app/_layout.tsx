@@ -1,92 +1,165 @@
-import { Stack, router } from "expo-router";
-import { useEffect } from "react";
+// app/_layout.tsx
+
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+} from "expo-router";
+import {
+  useEffect,
+  useRef,
+} from "react";
 import { StatusBar } from "react-native";
 
+import {
+  getStoredUser,
+} from "../services/auth";
 import { AuthProvider } from "../src/context/AuthContext";
-import { getUser } from "../src/services/auth";
 
-export default function Layout() {
+function normalizeRole(
+  role?: string | null
+): string {
+  return (
+    role || ""
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function RootNavigator() {
+  const router =
+    useRouter();
+
+  const rootNavigationState =
+    useRootNavigationState();
+
+  const hasCheckedAuth =
+    useRef(false);
+
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const user = await getUser();
-
-      if (!user) {
-        return;
-      }
-
-      // ============================================================
-      // CLIENT
-      // ============================================================
-
-      if (
-        user.role &&
-        user.role.toLowerCase() === "client"
-      ) {
-        router.replace("/(client)");
-        return;
-      }
-
-      // ============================================================
-      // STAFF / CLERK
-      // ============================================================
-
-      if (
-        user.role &&
-        user.role.toLowerCase() === "staff"
-      ) {
-        const staffRole =
-          user.staffRole ||
-          user.StaffRole ||
-          "";
-
-        // CLERK
-        if (
-          staffRole.toString().toLowerCase() === "clerk"
-        ) {
-          router.replace("/(clerk)");
-          return;
-        }
-
-        // OPERATIONAL STAFF
-        router.replace("/(staff)");
-        return;
-      }
-
-      // ============================================================
-      // UNKNOWN ROLE
-      // ============================================================
-
-      console.log(
-        "[AUTH] Unknown user role:",
-        user.role
-      );
-    } catch (error) {
-      console.log(
-        "[AUTH] Failed to check logged-in user:",
-        error
-      );
+    if (
+      !rootNavigationState?.key ||
+      hasCheckedAuth.current
+    ) {
+      return;
     }
-  };
+
+    hasCheckedAuth.current =
+      true;
+
+    const checkUser =
+      async (): Promise<void> => {
+        try {
+          const user =
+            await getStoredUser();
+
+          if (!user) {
+            console.log(
+              "[AUTH] No stored user."
+            );
+
+            return;
+          }
+
+          const role =
+            normalizeRole(
+              user.role
+            );
+
+          console.log(
+            "[AUTH] Stored role:",
+            role
+          );
+
+          switch (role) {
+            case "client":
+              router.replace(
+                "/(client)"
+              );
+              return;
+
+            case "clerk":
+              router.replace(
+                "/(clerk)"
+              );
+              return;
+
+            case "staff":
+              router.replace(
+                "/(staff)"
+              );
+              return;
+
+            default:
+              console.log(
+                "[AUTH] Unknown stored user role:",
+                user.role
+              );
+          }
+        } catch (error) {
+          console.log(
+            "[AUTH] Failed to restore user session:",
+            error
+          );
+        }
+      };
+
+    void checkUser();
+  }, [
+    rootNavigationState?.key,
+    router,
+  ]);
 
   return (
-    <AuthProvider>
-      <>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="#0F172A"
+    <>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#0F172A"
+      />
+
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation:
+            "slide_from_right",
+        }}
+      >
+        <Stack.Screen
+          name="index"
         />
 
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "slide_from_right",
-          }}
+        <Stack.Screen
+          name="welcome"
         />
-      </>
+
+        <Stack.Screen
+          name="login"
+        />
+
+        <Stack.Screen
+          name="forgot_password"
+        />
+
+        <Stack.Screen
+          name="(client)"
+        />
+
+        <Stack.Screen
+          name="(clerk)"
+        />
+
+        <Stack.Screen
+          name="(staff)"
+        />
+      </Stack>
+    </>
+  );
+}
+
+export default function Layout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
     </AuthProvider>
   );
 }

@@ -1,4 +1,8 @@
-//const API_URL = "http://10.0.2.2:5224/api";
-const API_URL = "http://192.168.137.1:5224/api";
+// src/services/api.ts
 
-export default API_URL;
+export {
+    API_URL,
+    apiRequest
+} from "../../services/api";
+
+export { API_URL as default } from "../../services/api";

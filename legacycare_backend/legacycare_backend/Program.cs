@@ -1,7 +1,12 @@
+// File: Program.cs
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PolicyManagement.Data;
+using PolicyManagement.Models.UserManagement;
+using PolicyManagement.Service.DashboardManagement;
 using PolicyManagement.Service.JWT;
 using PolicyManagement.Service.MortuaryManagement;
 using PolicyManagement.Service.PackageManagement;
@@ -13,9 +18,6 @@ using PolicyManagement.Service.TaskManagement;
 using PolicyManagement.Service.UserManagement;
 using PolicyManagement.Services;
 using PolicyManagement.Services.ScheduleManagement;
-using PolicyManagement.Service.DashboardManagement;
-using PolicyManagement.Models.UserManagement;
-using Microsoft.AspNetCore.Identity;
 using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -25,7 +27,8 @@ Environment.SetEnvironmentVariable(
     "1"
 );
 
-var builder = WebApplication.CreateBuilder(args);
+var builder =
+    WebApplication.CreateBuilder(args);
 
 
 // =====================================================
@@ -33,17 +36,16 @@ var builder = WebApplication.CreateBuilder(args);
 // =====================================================
 
 builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
+    .SetBasePath(
+        Directory.GetCurrentDirectory())
     .AddJsonFile(
         "appsettings.json",
         optional: false,
-        reloadOnChange: false
-    )
+        reloadOnChange: false)
     .AddJsonFile(
         $"appsettings.{builder.Environment.EnvironmentName}.json",
         optional: true,
-        reloadOnChange: false
-    )
+        reloadOnChange: false)
     .AddEnvironmentVariables();
 
 
@@ -51,7 +53,8 @@ builder.Configuration
 // QUESTPDF
 // =====================================================
 
-QuestPDF.Settings.License = LicenseType.Community;
+QuestPDF.Settings.License =
+    LicenseType.Community;
 
 
 // =====================================================
@@ -65,17 +68,16 @@ builder.Services
         options.JsonSerializerOptions.ReferenceHandler =
             ReferenceHandler.IgnoreCycles;
 
-        options.JsonSerializerOptions.MaxDepth = 64;
+        options.JsonSerializerOptions.MaxDepth =
+            64;
 
         options.JsonSerializerOptions.Converters.Add(
-            new JsonStringEnumConverter()
-        );
+            new JsonStringEnumConverter());
     });
 
 
 // =====================================================
 // SWAGGER
-// Swashbuckle.AspNetCore 10.2.3
 // =====================================================
 
 builder.Services.AddEndpointsApiExplorer();
@@ -86,15 +88,24 @@ builder.Services.AddSwaggerGen(options =>
         "Bearer",
         new Microsoft.OpenApi.OpenApiSecurityScheme
         {
-            Name = "Authorization",
-            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Name =
+                "Authorization",
+
+            Type =
+                Microsoft.OpenApi.SecuritySchemeType.Http,
+
+            Scheme =
+                "bearer",
+
+            BearerFormat =
+                "JWT",
+
+            In =
+                Microsoft.OpenApi.ParameterLocation.Header,
+
             Description =
                 "Enter your JWT token. Do NOT include the word 'Bearer'."
-        }
-    );
+        });
 
     options.AddSecurityRequirement(document =>
         new Microsoft.OpenApi.OpenApiSecurityRequirement
@@ -102,11 +113,9 @@ builder.Services.AddSwaggerGen(options =>
             [
                 new Microsoft.OpenApi.OpenApiSecuritySchemeReference(
                     "Bearer",
-                    document
-                )
+                    document)
             ] = new List<string>()
-        }
-    );
+        });
 });
 
 
@@ -115,7 +124,9 @@ builder.Services.AddSwaggerGen(options =>
 // =====================================================
 
 var jwtSettings =
-    builder.Configuration.GetSection("JwtSettings");
+    builder.Configuration
+        .GetSection(
+            "JwtSettings");
 
 var secret =
     jwtSettings["Secret"]
@@ -139,21 +150,18 @@ var audience =
 if (string.IsNullOrWhiteSpace(secret))
 {
     throw new InvalidOperationException(
-        "JWT secret is missing. Configure 'JwtSettings:Secret' or 'Jwt:Key' in appsettings.json, appsettings.Production.json, or Azure Application Settings."
-    );
+        "JWT secret is missing. Configure 'JwtSettings:Secret' or 'Jwt:Key' in appsettings.json, appsettings.Production.json, or Azure Application Settings.");
 }
 
 if (Encoding.UTF8.GetByteCount(secret) < 32)
 {
     throw new InvalidOperationException(
-        "JWT secret must be at least 32 bytes long."
-    );
+        "JWT secret must be at least 32 bytes long.");
 }
 
 var key =
     new SymmetricSecurityKey(
-        Encoding.UTF8.GetBytes(secret)
-    );
+        Encoding.UTF8.GetBytes(secret));
 
 
 // =====================================================
@@ -161,20 +169,16 @@ var key =
 // =====================================================
 
 Console.WriteLine(
-    $"[DIAGNOSTIC] JwtSettings:Secret exists = {!string.IsNullOrWhiteSpace(jwtSettings["Secret"])}"
-);
+    $"[DIAGNOSTIC] JwtSettings:Secret exists = {!string.IsNullOrWhiteSpace(jwtSettings["Secret"])}");
 
 Console.WriteLine(
-    $"[DIAGNOSTIC] Jwt:Key exists = {!string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"])}"
-);
+    $"[DIAGNOSTIC] Jwt:Key exists = {!string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"])}");
 
 Console.WriteLine(
-    $"[DIAGNOSTIC] JwtSettings:Issuer = {issuer}"
-);
+    $"[DIAGNOSTIC] JwtSettings:Issuer = {issuer}");
 
 Console.WriteLine(
-    $"[DIAGNOSTIC] JwtSettings:Audience = {audience}"
-);
+    $"[DIAGNOSTIC] JwtSettings:Audience = {audience}");
 
 
 // =====================================================
@@ -195,68 +199,79 @@ builder.Services
         options.TokenValidationParameters =
             new TokenValidationParameters
             {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
+                ValidateIssuer =
+                    true,
 
-                ValidIssuer = issuer,
-                ValidAudience = audience,
+                ValidateAudience =
+                    true,
 
-                IssuerSigningKey = key,
+                ValidateLifetime =
+                    true,
 
-                ClockSkew = TimeSpan.Zero
+                ValidateIssuerSigningKey =
+                    true,
+
+                ValidIssuer =
+                    issuer,
+
+                ValidAudience =
+                    audience,
+
+                IssuerSigningKey =
+                    key,
+
+                ClockSkew =
+                    TimeSpan.Zero
             };
 
-        // =====================================================
-        // JWT DIAGNOSTIC EVENTS
-        // =====================================================
-
-        options.Events = new JwtBearerEvents
-        {
-            OnAuthenticationFailed = context =>
+        options.Events =
+            new JwtBearerEvents
             {
-                Console.WriteLine(
-                    $"[JWT ERROR] Authentication failed: {context.Exception.Message}"
-                );
+                OnAuthenticationFailed =
+                    context =>
+                    {
+                        Console.WriteLine(
+                            $"[JWT ERROR] Authentication failed: {context.Exception.Message}");
 
-                return Task.CompletedTask;
-            },
+                        return Task.CompletedTask;
+                    },
 
-            OnTokenValidated = context =>
-            {
-                var userId =
-                    context.Principal?
-                        .FindFirst(
-                            System.Security.Claims.ClaimTypes.NameIdentifier
-                        )?.Value;
+                OnTokenValidated =
+                    context =>
+                    {
+                        var userId =
+                            context.Principal?
+                                .FindFirst(
+                                    System.Security.Claims.ClaimTypes.NameIdentifier)
+                                ?.Value;
 
-                var clientId =
-                    context.Principal?
-                        .FindFirst("ClientId")?.Value;
+                        var clientId =
+                            context.Principal?
+                                .FindFirst(
+                                    "ClientId")
+                                ?.Value;
 
-                var role =
-                    context.Principal?
-                        .FindFirst(
-                            System.Security.Claims.ClaimTypes.Role
-                        )?.Value;
+                        var role =
+                            context.Principal?
+                                .FindFirst(
+                                    System.Security.Claims.ClaimTypes.Role)
+                                ?.Value;
 
-                Console.WriteLine(
-                    $"[JWT SUCCESS] UserId={userId}, ClientId={clientId}, Role={role}"
-                );
+                        Console.WriteLine(
+                            $"[JWT SUCCESS] UserId={userId}, ClientId={clientId}, Role={role}");
 
-                return Task.CompletedTask;
-            },
+                        return Task.CompletedTask;
+                    },
 
-            OnChallenge = context =>
-            {
-                Console.WriteLine(
-                    $"[JWT CHALLENGE] Authorization failed for {context.Request.Method} {context.Request.Path}"
-                );
+                OnChallenge =
+                    context =>
+                    {
+                        Console.WriteLine(
+                            $"[JWT CHALLENGE] Authorization failed for {context.Request.Method} {context.Request.Path}");
 
-                return Task.CompletedTask;
-            }
-        };
+                        return Task.CompletedTask;
+                    }
+            };
     });
 
 
@@ -271,133 +286,118 @@ builder.Services.AddAuthorization();
 // APPLICATION SERVICES
 // =====================================================
 
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<
+    IUserService,
+    UserService>();
 
-builder.Services.AddScoped<IPasswordService, PasswordService>();
+builder.Services.AddScoped<
+    IPasswordService,
+    PasswordService>();
 
 builder.Services.AddScoped<
     IBookingRestrictionService,
-    BookingRestrictionService
->();
+    BookingRestrictionService>();
 
 builder.Services.AddScoped<
     IPolicyService,
-    PolicyService
->();
+    PolicyService>();
 
 builder.Services.AddScoped<
     IPackageService,
-    PackageService
->();
+    PackageService>();
 
 builder.Services.AddScoped<
     IBeneficiaryService,
-    BeneficiaryService
->();
+    BeneficiaryService>();
 
 builder.Services.AddScoped<
     IBeneficiaryRequestService,
-    BeneficiaryRequestService
->();
+    BeneficiaryRequestService>();
 
 builder.Services.AddScoped<
     IPackageChangeRequestService,
-    PackageChangeRequestService
->();
+    PackageChangeRequestService>();
 
 builder.Services.AddScoped<
     IStorageService,
-    StorageService
->();
+    StorageService>();
 
 builder.Services.AddScoped<
     IDeceasedService,
-    DeceasedService
->();
+    DeceasedService>();
 
 builder.Services.AddScoped<
     IDeceasedStorageService,
-    DeceasedStorageService
->();
+    DeceasedStorageService>();
 
 builder.Services.AddScoped<
     IEventService,
-    EventService
->();
+    EventService>();
 
 builder.Services.AddScoped<
     ITaskService,
-    TaskService
->();
+    TaskService>();
 
 builder.Services.AddScoped<
     IPaymentService,
-    PaymentService
->();
+    PaymentService>();
 
 builder.Services.AddScoped<
     IPaymentMethodService,
-    PaymentMethodService
->();
+    PaymentMethodService>();
 
 builder.Services.AddScoped<
     IInvoiceService,
-    InvoiceService
->();
+    InvoiceService>();
 
-builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<
+    JwtService>();
 
-builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<
+    AuthenticationService>();
 
 builder.Services.AddScoped<
     IPasswordHasher<User>,
-    PasswordHasher<User>
->();
+    PasswordHasher<User>>();
 
 builder.Services.AddScoped<
     IClientService,
-    ClientService
->();
+    ClientService>();
 
 builder.Services.AddScoped<
     IStaffService,
-    StaffService
->();
+    StaffService>();
 
 builder.Services.AddScoped<
     IClientValidationService,
-    ClientValidationService
->();
+    ClientValidationService>();
 
 builder.Services.AddScoped<
     IStaffValidationService,
-    StaffValidationService
->();
+    StaffValidationService>();
 
 builder.Services.AddScoped<
     IFuneralRequestService,
-    FuneralRequestService
->();
+    FuneralRequestService>();
 
 builder.Services.AddScoped<
     IDeathNotificationService,
-    DeathNotificationService
->();
+    DeathNotificationService>();
 
 builder.Services.AddScoped<
     IRequestNumberService,
-    RequestNumberService
->();
+    RequestNumberService>();
 
 builder.Services.AddScoped<
     IFuneralStaffDeploymentService,
-    FuneralStaffDeploymentService
->();
+    FuneralStaffDeploymentService>();
 
 builder.Services.AddScoped<
     IServiceRequestService,
-    ServiceRequestService
->();
+    ServiceRequestService>();
+
+builder.Services.AddScoped<
+    OperationalStaffSeeder>();
 
 
 // =====================================================
@@ -406,8 +406,7 @@ builder.Services.AddScoped<
 
 builder.Services.AddScoped<
     IDashboardService,
-    DashboardService
->();
+    DashboardService>();
 
 
 // =====================================================
@@ -416,40 +415,39 @@ builder.Services.AddScoped<
 
 builder.Services.AddHttpClient<
     IEmailService,
-    EmailService
->();
+    EmailService>();
 
 
 // =====================================================
 // DATABASE
 // =====================================================
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    var connectionString =
-        builder.Configuration.GetConnectionString(
-            "DefaultConnection"
-        );
-
-    if (string.IsNullOrWhiteSpace(connectionString))
+builder.Services.AddDbContext<AppDbContext>(
+    options =>
     {
-        throw new InvalidOperationException(
-            "DefaultConnection was not found."
-        );
-    }
+        var connectionString =
+            builder.Configuration
+                .GetConnectionString(
+                    "DefaultConnection");
 
-    options.UseSqlServer(
-        connectionString,
-        sqlOptions =>
+        if (string.IsNullOrWhiteSpace(
+            connectionString))
         {
-            sqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 5,
-                maxRetryDelay: TimeSpan.FromSeconds(10),
-                errorNumbersToAdd: null
-            );
+            throw new InvalidOperationException(
+                "DefaultConnection was not found.");
         }
-    );
-});
+
+        options.UseSqlServer(
+            connectionString,
+            sqlOptions =>
+            {
+                sqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay:
+                        TimeSpan.FromSeconds(10),
+                    errorNumbersToAdd: null);
+            });
+    });
 
 
 // =====================================================
@@ -465,13 +463,11 @@ builder.Services.AddCors(options =>
             policy
                 .WithOrigins(
                     "http://localhost:3000",
-                    "https://legacycare-frontend5-d9d7dzd8afducjcr.southafricanorth-01.azurewebsites.net"
-                )
+                    "https://legacycare-frontend5-d9d7dzd8afducjcr.southafricanorth-01.azurewebsites.net")
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
-        }
-    );
+        });
 });
 
 
@@ -479,7 +475,8 @@ builder.Services.AddCors(options =>
 // BUILD APPLICATION
 // =====================================================
 
-var app = builder.Build();
+var app =
+    builder.Build();
 
 
 // =====================================================
@@ -487,8 +484,7 @@ var app = builder.Build();
 // =====================================================
 
 Console.WriteLine(
-    $"[DIAGNOSTIC] EnvironmentName = '{app.Environment.EnvironmentName}'"
-);
+    $"[DIAGNOSTIC] EnvironmentName = '{app.Environment.EnvironmentName}'");
 
 
 // =====================================================
@@ -497,45 +493,47 @@ Console.WriteLine(
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler(errorApp =>
-    {
-        errorApp.Run(async context =>
+    app.UseExceptionHandler(
+        errorApp =>
         {
-            var exceptionHandler =
-                context.Features.Get<
-                    Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature
-                >();
-
-            var logger =
-                context.RequestServices
-                    .GetRequiredService<
-                        ILogger<Program>
-                    >();
-
-            if (exceptionHandler?.Error != null)
-            {
-                logger.LogError(
-                    exceptionHandler.Error,
-                    "Unhandled exception while processing {Method} {Path}",
-                    context.Request.Method,
-                    context.Request.Path
-                );
-            }
-
-            context.Response.StatusCode = 500;
-
-            context.Response.ContentType =
-                "application/json";
-
-            await context.Response.WriteAsJsonAsync(
-                new
+            errorApp.Run(
+                async context =>
                 {
-                    message = "Internal server error",
-                    path = context.Request.Path
-                }
-            );
+                    var exceptionHandler =
+                        context.Features.Get<
+                            Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+
+                    var logger =
+                        context.RequestServices
+                            .GetRequiredService<
+                                ILogger<Program>>();
+
+                    if (exceptionHandler?.Error != null)
+                    {
+                        logger.LogError(
+                            exceptionHandler.Error,
+                            "Unhandled exception while processing {Method} {Path}",
+                            context.Request.Method,
+                            context.Request.Path);
+                    }
+
+                    context.Response.StatusCode =
+                        500;
+
+                    context.Response.ContentType =
+                        "application/json";
+
+                    await context.Response.WriteAsJsonAsync(
+                        new
+                        {
+                            message =
+                                "Internal server error",
+
+                            path =
+                                context.Request.Path
+                        });
+                });
         });
-    });
 
     app.UseHsts();
 }
@@ -555,7 +553,6 @@ app.UseSwaggerUI();
 // =====================================================
 
 // HTTPS is handled by the hosting environment.
-// app.UseHttpsRedirection();
 
 
 // =====================================================
@@ -569,7 +566,8 @@ app.UseRouting();
 // CORS
 // =====================================================
 
-app.UseCors("AllowFrontend");
+app.UseCors(
+    "AllowFrontend");
 
 
 // =====================================================
@@ -605,10 +603,28 @@ app.MapControllers();
 // =====================================================
 
 app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}"
-)
-.WithStaticAssets();
+        name:
+            "default",
+
+        pattern:
+            "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+
+// =====================================================
+// OPERATIONAL STAFF SEEDING
+// =====================================================
+
+using (var scope =
+       app.Services.CreateScope())
+{
+    var seeder =
+        scope.ServiceProvider
+            .GetRequiredService<
+                OperationalStaffSeeder>();
+
+    await seeder.SeedAsync();
+}
 
 
 // =====================================================

@@ -1,22 +1,29 @@
+// app/(dashboard)/client/report-death/page.tsx
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth";
 
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api";
+  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api"
+)
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .replace(/;$/, "")
+  .replace(/\/+$/, "");
+
 type Policy = {
-  policyId: number | string;
+  policyId: string | number;
   policyNumber?: string;
   status?: string;
   policyStatus?: string;
-  clientId?: number | string;
 };
 
 type Beneficiary = {
-  beneficiaryId: number | string;
+  beneficiaryId: string | number;
   firstName?: string;
   lastName?: string;
   fullName?: string;
@@ -25,22 +32,52 @@ type Beneficiary = {
   status?: string;
 };
 
+type BodyLocationType =
+  | "Hospital"
+  | "LegacyCareMortuary"
+  | "GovernmentMortuary"
+  | "HomeScene"
+  | "Other"
+  | "";
+
+function getBeneficiaryName(
+  beneficiary: Beneficiary
+): string {
+  if (beneficiary.fullName?.trim()) {
+    return beneficiary.fullName;
+  }
+
+  if (beneficiary.name?.trim()) {
+    return beneficiary.name;
+  }
+
+  return `${beneficiary.firstName || ""} ${
+    beneficiary.lastName || ""
+  }`.trim();
+}
+
 export default function ReportDeathPage() {
-  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [policies, setPolicies] =
+    useState<Policy[]>([]);
+
   const [beneficiaries, setBeneficiaries] =
     useState<Beneficiary[]>([]);
 
   const [selectedPolicyId, setSelectedPolicyId] =
     useState("");
 
-  const [selectedBeneficiaryId, setSelectedBeneficiaryId] =
-    useState("");
+  const [
+    selectedBeneficiaryId,
+    setSelectedBeneficiaryId,
+  ] = useState("");
 
   const [dateOfDeath, setDateOfDeath] =
     useState("");
 
-  const [relationshipToDeceased, setRelationshipToDeceased] =
-    useState("");
+  const [
+    relationshipToDeceased,
+    setRelationshipToDeceased,
+  ] = useState("");
 
   const [contactPerson, setContactPerson] =
     useState("");
@@ -48,14 +85,31 @@ export default function ReportDeathPage() {
   const [contactNumber, setContactNumber] =
     useState("");
 
+  const [
+    bodyLocationType,
+    setBodyLocationType,
+  ] = useState<BodyLocationType>("");
+
+  const [
+    bodyLocationAddress,
+    setBodyLocationAddress,
+  ] = useState("");
+
+  const [mortuaryName, setMortuaryName] =
+    useState("");
+
   const [proofOfDeath, setProofOfDeath] =
     useState<File | null>(null);
 
-  const [loadingPolicies, setLoadingPolicies] =
-    useState(true);
+  const [
+    loadingPolicies,
+    setLoadingPolicies,
+  ] = useState(true);
 
-  const [loadingBeneficiaries, setLoadingBeneficiaries] =
-    useState(false);
+  const [
+    loadingBeneficiaries,
+    setLoadingBeneficiaries,
+  ] = useState(false);
 
   const [submitting, setSubmitting] =
     useState(false);
@@ -66,19 +120,10 @@ export default function ReportDeathPage() {
   const [success, setSuccess] =
     useState("");
 
-  // =========================================================
-  // PAGE LOAD
-  // =========================================================
-
   useEffect(() => {
     document.title = "Report a Death";
-
-    loadPolicies();
+    void loadPolicies();
   }, []);
-
-  // =========================================================
-  // LOAD CLIENT POLICIES
-  // =========================================================
 
   const loadPolicies = async () => {
     try {
@@ -88,8 +133,9 @@ export default function ReportDeathPage() {
       const token = getToken();
 
       if (!token) {
-        setError("You are not logged in.");
-        return;
+        throw new Error(
+          "You are not logged in."
+        );
       }
 
       const response = await fetch(
@@ -100,35 +146,30 @@ export default function ReportDeathPage() {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         }
       );
 
-      const data = await response
-        .json()
-        .catch(() => null);
+      const data =
+        await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            `Failed to load policies (${response.status})`
+            `Unable to load policies. (${response.status})`
         );
       }
 
-      console.log(
-        "[ReportDeath] Policies:",
-        data
-      );
-
       setPolicies(
-        Array.isArray(data)
-          ? data
-          : []
+        Array.isArray(data) ? data : []
       );
     } catch (err) {
       console.error(
         "[ReportDeath] Policy error:",
         err
       );
+
+      setPolicies([]);
 
       setError(
         err instanceof Error
@@ -139,10 +180,6 @@ export default function ReportDeathPage() {
       setLoadingPolicies(false);
     }
   };
-
-  // =========================================================
-  // LOAD BENEFICIARIES FOR SELECTED POLICY
-  // =========================================================
 
   const loadBeneficiaries = async (
     policyId: string
@@ -157,14 +194,10 @@ export default function ReportDeathPage() {
       const token = getToken();
 
       if (!token) {
-        setError("You are not logged in.");
-        return;
+        throw new Error(
+          "You are not logged in."
+        );
       }
-
-      console.log(
-        "[ReportDeath] Loading beneficiaries for policy:",
-        policyId
-      );
 
       const response = await fetch(
         `${API_URL}/Beneficiary/policy/${policyId}`,
@@ -174,55 +207,31 @@ export default function ReportDeathPage() {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         }
       );
 
-      const data = await response
-        .json()
-        .catch(() => null);
+      const data =
+        await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
           data?.message ||
-            `Failed to load beneficiaries (${response.status})`
+            `Unable to load beneficiaries. (${response.status})`
         );
       }
 
-      console.log(
-        "[ReportDeath] Backend beneficiaries:",
-        data
-      );
-
-      // =====================================================
-      // FRONTEND SAFETY FILTER
-      // =====================================================
-      //
-      // Only Alive beneficiaries may appear.
-      //
-      // Alive    -> SHOW
-      // Removed  -> HIDE
-      // Deceased -> HIDE
-      //
-      // The backend already performs this filtering,
-      // but we also filter here as a second safety layer.
-      // =====================================================
-
-      const aliveBeneficiaries: Beneficiary[] =
-        Array.isArray(data)
-          ? data.filter(
-              (beneficiary: Beneficiary) =>
-                String(
-                  beneficiary.status || ""
-                )
-                  .trim()
-                  .toLowerCase() === "alive"
-            )
-          : [];
-
-      console.log(
-        "[ReportDeath] Eligible ALIVE beneficiaries:",
-        aliveBeneficiaries
-      );
+      const aliveBeneficiaries:
+        Beneficiary[] = Array.isArray(data)
+        ? data.filter(
+            (beneficiary: Beneficiary) =>
+              String(
+                beneficiary.status || ""
+              )
+                .trim()
+                .toLowerCase() === "alive"
+          )
+        : [];
 
       setBeneficiaries(
         aliveBeneficiaries
@@ -232,6 +241,8 @@ export default function ReportDeathPage() {
         "[ReportDeath] Beneficiary error:",
         err
       );
+
+      setBeneficiaries([]);
 
       setError(
         err instanceof Error
@@ -243,18 +254,8 @@ export default function ReportDeathPage() {
     }
   };
 
-  // =========================================================
-  // POLICY CHANGE
-  // =========================================================
-
-  const handlePolicyChange = (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const policyId =
-      event.target.value;
-
-    setSelectedPolicyId(policyId);
-
+  const resetForm = () => {
+    setSelectedPolicyId("");
     setSelectedBeneficiaryId("");
 
     setBeneficiaries([]);
@@ -262,114 +263,133 @@ export default function ReportDeathPage() {
     setDateOfDeath("");
 
     setRelationshipToDeceased("");
-
     setContactPerson("");
-
     setContactNumber("");
+
+    setBodyLocationType("");
+    setBodyLocationAddress("");
+    setMortuaryName("");
+
+    setProofOfDeath(null);
+
+    const fileInput =
+      document.getElementById(
+        "proofOfDeath"
+      ) as HTMLInputElement | null;
+
+    if (fileInput) {
+      fileInput.value = "";
+    }
+  };
+
+  const handlePolicyChange = (
+    event:
+      React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const policyId =
+      event.target.value;
+
+    setSelectedPolicyId(policyId);
+
+    setSelectedBeneficiaryId("");
+    setBeneficiaries([]);
+
+    setDateOfDeath("");
+
+    setRelationshipToDeceased("");
+    setContactPerson("");
+    setContactNumber("");
+
+    setBodyLocationType("");
+    setBodyLocationAddress("");
+    setMortuaryName("");
 
     setProofOfDeath(null);
 
     if (policyId) {
-      loadBeneficiaries(policyId);
+      void loadBeneficiaries(policyId);
     }
   };
 
-  // =========================================================
-  // BENEFICIARY CHANGE
-  // =========================================================
-
-  const handleBeneficiaryChange = (
-    beneficiaryId: string
+  const handleBodyLocationChange = (
+    event:
+      React.ChangeEvent<HTMLSelectElement>
   ) => {
-    setSelectedBeneficiaryId(
-      beneficiaryId
+    const value =
+      event.target
+        .value as BodyLocationType;
+
+    setBodyLocationType(value);
+
+    setBodyLocationAddress("");
+    setMortuaryName("");
+  };
+
+  const handleFileChange = (
+    event:
+      React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setProofOfDeath(
+      event.target.files?.[0] || null
     );
   };
 
-  // =========================================================
-  // FILE CHANGE
-  // =========================================================
-
-  const handleFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file =
-      event.target.files?.[0] ||
-      null;
-
-    setProofOfDeath(file);
-  };
-
-  // =========================================================
-  // SUBMIT DEATH NOTIFICATION
-  // =========================================================
-
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    // =====================================================
-    // VALIDATION
-    // =====================================================
-
+  const validateForm = (): string | null => {
     if (!selectedPolicyId) {
-      setError(
-        "Please select a policy."
-      );
-      return;
+      return "Please select a policy.";
     }
 
     if (!selectedBeneficiaryId) {
-      setError(
-        "Please select the person who has died."
-      );
-      return;
+      return "Please select the person who has died.";
     }
 
     if (!dateOfDeath) {
-      setError(
-        "Please enter the date of death."
-      );
-      return;
+      return "Please enter the date of death.";
     }
 
     if (
       !relationshipToDeceased.trim()
     ) {
-      setError(
-        "Please provide your relationship to the deceased."
-      );
-      return;
+      return "Please provide your relationship to the deceased.";
     }
 
     if (!contactPerson.trim()) {
-      setError(
-        "Please provide the contact person's name."
-      );
-      return;
+      return "Please provide the contact person's name.";
     }
 
     if (!contactNumber.trim()) {
-      setError(
-        "Please provide a contact number."
-      );
-      return;
+      return "Please provide a contact number.";
+    }
+
+    if (!bodyLocationType) {
+      return "Please specify where the body is currently located.";
+    }
+
+    const requiresAddress =
+      bodyLocationType === "Hospital" ||
+      bodyLocationType ===
+        "GovernmentMortuary" ||
+      bodyLocationType === "HomeScene" ||
+      bodyLocationType === "Other";
+
+    if (
+      requiresAddress &&
+      !bodyLocationAddress.trim()
+    ) {
+      return "Please provide the current body location or address.";
+    }
+
+    if (
+      bodyLocationType ===
+        "GovernmentMortuary" &&
+      !mortuaryName.trim()
+    ) {
+      return "Please provide the government mortuary name.";
     }
 
     if (!proofOfDeath) {
-      setError(
-        "Please upload the death certificate or proof of death."
-      );
-      return;
+      return "Please upload the death certificate or proof of death.";
     }
-
-    // =====================================================
-    // FILE VALIDATION
-    // =====================================================
 
     const allowedTypes = [
       "application/pdf",
@@ -382,10 +402,7 @@ export default function ReportDeathPage() {
         proofOfDeath.type
       )
     ) {
-      setError(
-        "Only PDF, JPG, JPEG and PNG files are accepted."
-      );
-      return;
+      return "Only PDF, JPG, JPEG and PNG files are accepted.";
     }
 
     const maxFileSize =
@@ -395,15 +412,35 @@ export default function ReportDeathPage() {
       proofOfDeath.size >
       maxFileSize
     ) {
-      setError(
-        "The proof of death document must be 10 MB or smaller."
-      );
+      return "The proof of death document must be 10 MB or smaller.";
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async (
+    event:
+      React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    const validationError =
+      validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    // =====================================================
-    // SUBMIT
-    // =====================================================
+    if (!proofOfDeath) {
+      setError(
+        "Proof of death is required."
+      );
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -411,10 +448,9 @@ export default function ReportDeathPage() {
       const token = getToken();
 
       if (!token) {
-        setError(
+        throw new Error(
           "You are not logged in."
         );
-        return;
       }
 
       const formData =
@@ -435,6 +471,9 @@ export default function ReportDeathPage() {
         dateOfDeath
       );
 
+      /*
+       * These names MUST match the backend DTO exactly.
+       */
       formData.append(
         "RelationshipToDeceased",
         relationshipToDeceased.trim()
@@ -451,22 +490,85 @@ export default function ReportDeathPage() {
       );
 
       formData.append(
+        "BodyLocationType",
+        bodyLocationType
+      );
+
+      if (
+        bodyLocationAddress.trim()
+      ) {
+        formData.append(
+          "BodyLocationAddress",
+          bodyLocationAddress.trim()
+        );
+      }
+
+      if (mortuaryName.trim()) {
+        formData.append(
+          "MortuaryName",
+          mortuaryName.trim()
+        );
+      }
+
+      formData.append(
         "ProofOfDeathDocument",
         proofOfDeath
       );
 
+      /*
+       * Keep this log until REQ-00006 is verified.
+       */
       console.log(
-        "[ReportDeath] Submitting death notification..."
+        "[ReportDeath] SUBMIT VALUES:",
+        {
+          policyId:
+            selectedPolicyId,
+
+          beneficiaryId:
+            selectedBeneficiaryId,
+
+          dateOfDeath,
+
+          relationshipToDeceased:
+            relationshipToDeceased.trim(),
+
+          contactPerson:
+            contactPerson.trim(),
+
+          contactNumber:
+            contactNumber.trim(),
+
+          bodyLocationType,
+
+          bodyLocationAddress:
+            bodyLocationAddress.trim(),
+
+          mortuaryName:
+            mortuaryName.trim(),
+        }
+      );
+
+      console.log(
+        "[ReportDeath] FORM DATA:",
+        Array.from(
+          formData.entries()
+        )
       );
 
       const response = await fetch(
         `${API_URL}/DeathNotification`,
         {
           method: "POST",
+
+          /*
+           * Do not manually set Content-Type
+           * when sending FormData.
+           */
           headers: {
             Authorization:
               `Bearer ${token}`,
           },
+
           body: formData,
         }
       );
@@ -476,59 +578,29 @@ export default function ReportDeathPage() {
           .json()
           .catch(() => null);
 
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Failed to submit death notification (${response.status})`
-        );
-      }
-
       console.log(
-        "[ReportDeath] Submitted:",
+        "[ReportDeath] RESPONSE:",
+        response.status,
         data
       );
 
-      // =====================================================
-      // IMPORTANT
-      //
-      // Client submission does NOT mark the beneficiary
-      // as deceased.
-      //
-      // Staff/Admin must verify and approve first.
-      // =====================================================
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            data?.title ||
+            `Unable to submit death notification. (${response.status})`
+        );
+      }
 
       setSuccess(
-        "Death notification submitted successfully. LegacyCare will verify the information and documentation before the beneficiary is marked as deceased and the funeral process can continue."
+        `Death notification ${
+          data?.requestNumber
+            ? `${data.requestNumber} `
+            : ""
+        }submitted successfully. The beneficiary remains Alive while the notification is Pending. LegacyCare staff will review the report, proof of death and current body location.`
       );
 
-      // =====================================================
-      // CLEAR FORM
-      // =====================================================
-
-      setSelectedPolicyId("");
-
-      setSelectedBeneficiaryId("");
-
-      setBeneficiaries([]);
-
-      setDateOfDeath("");
-
-      setRelationshipToDeceased("");
-
-      setContactPerson("");
-
-      setContactNumber("");
-
-      setProofOfDeath(null);
-
-      const fileInput =
-        document.getElementById(
-          "proofOfDeath"
-        ) as HTMLInputElement | null;
-
-      if (fileInput) {
-        fileInput.value = "";
-      }
+      resetForm();
     } catch (err) {
       console.error(
         "[ReportDeath] Submit error:",
@@ -545,189 +617,90 @@ export default function ReportDeathPage() {
     }
   };
 
-  // =========================================================
-  // GET BENEFICIARY NAME
-  // =========================================================
-
-  const getBeneficiaryName = (
-    beneficiary: Beneficiary
-  ) => {
-    if (beneficiary.fullName) {
-      return beneficiary.fullName;
-    }
-
-    if (beneficiary.name) {
-      return beneficiary.name;
-    }
-
-    return `${beneficiary.firstName || ""} ${
-      beneficiary.lastName || ""
-    }`.trim();
-  };
-
-  // =========================================================
-  // RENDER
-  // =========================================================
-
   return (
     <div className="mx-auto max-w-4xl space-y-8">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <Link
+          href="/client/service-requests"
+          className="text-sm font-medium text-teal-600 hover:text-teal-700"
+        >
+          ← Back to Service Requests
+        </Link>
 
-        <div>
+        <h1 className="mt-4 text-2xl font-semibold text-gray-900">
+          Report a Death
+        </h1>
 
-          <div className="mb-3">
-
-            <Link
-              href="/client/service-requests"
-              className="text-sm font-medium text-teal-600 hover:text-teal-700"
-            >
-              ← Back to Service Requests
-            </Link>
-
-          </div>
-
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Report a Death
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-            Report the death of a beneficiary and
-            provide the required information and
-            documentation. LegacyCare will verify
-            the submission before the beneficiary
-            status is updated.
-          </p>
-
-        </div>
-
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-3xl">
-          🕊️
-        </div>
-
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+          Report the death of a beneficiary,
+          provide your contact information,
+          the current body location and proof
+          of death.
+        </p>
       </div>
 
-      {/* =====================================================
-          PROCESS INFORMATION
-      ===================================================== */}
+      {/* PROCESS INFO */}
 
-      <div className="rounded-2xl border border-teal-200 bg-teal-50 p-5">
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+        <p className="font-semibold text-blue-900">
+          How the process works
+        </p>
 
-        <div className="flex items-start gap-3">
-
-          <div className="text-xl">
-            ℹ️
-          </div>
-
-          <div>
-
-            <h2 className="font-semibold text-teal-900">
-              What happens after you submit?
-            </h2>
-
-            <p className="mt-1 text-sm leading-6 text-teal-800">
-              Your notification is sent to LegacyCare
-              for verification. Staff will review the
-              information and proof of death before the
-              beneficiary status is changed to deceased.
-            </p>
-
-          </div>
-
-        </div>
-
+        <p className="mt-2 text-sm leading-6 text-blue-800">
+          You only report the current body
+          location. You do not choose a
+          LegacyCare storage unit. Staff will
+          collect the body if necessary and
+          select an available storage unit from
+          the correct branch before approval.
+        </p>
       </div>
 
-      {/* =====================================================
-          SUCCESS
-      ===================================================== */}
+      {/* ERROR */}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* SUCCESS */}
 
       {success && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+          <p className="font-semibold text-green-800">
+            Death notification submitted
+          </p>
 
-          <div className="flex items-start gap-3">
+          <p className="mt-2 text-sm leading-6 text-green-700">
+            {success}
+          </p>
 
-            <div className="text-xl">
-              ✓
-            </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/client/service-requests"
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+            >
+              View My Requests
+            </Link>
 
-            <div>
-
-              <p className="font-semibold text-green-800">
-                Death notification submitted
-              </p>
-
-              <p className="mt-1 text-sm leading-6 text-green-700">
-                {success}
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-
-                <Link
-                  href="/client/service-requests"
-                  className="inline-flex rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                >
-                  View My Requests
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSuccess("");
-                    setError("");
-                    loadPolicies();
-                  }}
-                  className="inline-flex rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
-                >
-                  Report Another Death
-                </button>
-
-              </div>
-
-            </div>
-
+            <button
+              type="button"
+              onClick={() => {
+                setSuccess("");
+                setError("");
+                void loadPolicies();
+              }}
+              className="rounded-lg border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700"
+            >
+              Report Another Death
+            </button>
           </div>
-
         </div>
       )}
-
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5">
-
-          <div className="flex items-start gap-3">
-
-            <div className="text-xl">
-              ⚠️
-            </div>
-
-            <div>
-
-              <p className="font-semibold text-red-800">
-                Unable to continue
-              </p>
-
-              <p className="mt-1 text-sm leading-6 text-red-700">
-                {error}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* =====================================================
-          FORM
-      ===================================================== */}
 
       {!success && (
         <form
@@ -735,66 +708,33 @@ export default function ReportDeathPage() {
           className="space-y-8"
         >
 
-          {/* =================================================
-              STEP 1 - POLICY
-          ================================================= */}
+          {/* POLICY */}
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900">
+              1. Select Policy
+            </h2>
 
-            <div className="mb-6">
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white">
-                  1
-                </div>
-
-                <div>
-
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Select Policy
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Select the policy associated with
-                    the deceased beneficiary.
-                  </p>
-
-                </div>
-
-              </div>
-
-            </div>
-
-            <label
-              htmlFor="policy"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Policy
-            </label>
+            <p className="mt-1 text-sm text-gray-500">
+              Select the policy associated
+              with the deceased beneficiary.
+            </p>
 
             {loadingPolicies ? (
-
-              <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-                Loading your policies...
-              </div>
-
-            ) : policies.length === 0 ? (
-
-              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                No policies were found on your account.
-              </div>
-
+              <p className="mt-5 text-sm text-gray-500">
+                Loading policies...
+              </p>
             ) : (
-
               <select
-                id="policy"
-                value={selectedPolicyId}
-                onChange={handlePolicyChange}
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                value={
+                  selectedPolicyId
+                }
+                onChange={
+                  handlePolicyChange
+                }
+                className="mt-5 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm"
                 required
               >
-
                 <option value="">
                   Select a policy
                 </option>
@@ -802,11 +742,16 @@ export default function ReportDeathPage() {
                 {policies.map(
                   (policy) => (
                     <option
-                      key={policy.policyId}
-                      value={policy.policyId}
+                      key={
+                        policy.policyId
+                      }
+                      value={
+                        policy.policyId
+                      }
                     >
                       {policy.policyNumber ||
                         `Policy ${policy.policyId}`}
+
                       {policy.status ||
                       policy.policyStatus
                         ? ` — ${
@@ -817,84 +762,37 @@ export default function ReportDeathPage() {
                     </option>
                   )
                 )}
-
               </select>
-
             )}
+          </section>
 
-          </div>
-
-          {/* =================================================
-              STEP 2 - BENEFICIARY
-          ================================================= */}
+          {/* BENEFICIARY */}
 
           {selectedPolicyId && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900">
+                2. Select Person
+              </h2>
 
-              <div className="mb-6">
-
-                <div className="flex items-center gap-3">
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white">
-                    2
-                  </div>
-
-                  <div>
-
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      Select Person
-                    </h2>
-
-                    <p className="text-sm text-gray-500">
-                      Select the beneficiary who has died.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                Select the Alive beneficiary
+                who has died.
+              </p>
 
               {loadingBeneficiaries ? (
-
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-500">
+                <p className="mt-5 text-sm text-gray-500">
                   Loading beneficiaries...
+                </p>
+              ) : beneficiaries.length ===
+                0 ? (
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                  No Alive beneficiaries are
+                  available for this policy.
                 </div>
-
-              ) : beneficiaries.length === 0 ? (
-
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-
-                  <div className="flex items-start gap-3">
-
-                    <div className="text-xl">
-                      ℹ️
-                    </div>
-
-                    <div>
-
-                      <p className="font-medium text-amber-800">
-                        No eligible beneficiaries found
-                      </p>
-
-                      <p className="mt-1 text-sm leading-6 text-amber-700">
-                        There are no alive beneficiaries
-                        available to report for this policy.
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
               ) : (
-
-                <div className="space-y-3">
-
+                <div className="mt-5 space-y-3">
                   {beneficiaries.map(
                     (beneficiary) => {
-
                       const selected =
                         String(
                           beneficiary.beneficiaryId
@@ -908,7 +806,7 @@ export default function ReportDeathPage() {
                           }
                           type="button"
                           onClick={() =>
-                            handleBeneficiaryChange(
+                            setSelectedBeneficiaryId(
                               String(
                                 beneficiary.beneficiaryId
                               )
@@ -917,333 +815,412 @@ export default function ReportDeathPage() {
                           className={`w-full rounded-xl border p-4 text-left transition ${
                             selected
                               ? "border-teal-500 bg-teal-50 ring-2 ring-teal-100"
-                              : "border-gray-200 bg-white hover:border-teal-300 hover:bg-gray-50"
+                              : "border-gray-200 hover:border-teal-300"
                           }`}
                         >
+                          <p className="font-semibold text-gray-900">
+                            {getBeneficiaryName(
+                              beneficiary
+                            ) ||
+                              "Unnamed Beneficiary"}
+                          </p>
 
-                          <div className="flex items-center justify-between gap-4">
+                          {beneficiary.relationship && (
+                            <p className="mt-1 text-sm text-gray-500">
+                              Relationship:{" "}
+                              {
+                                beneficiary.relationship
+                              }
+                            </p>
+                          )}
 
-                            <div>
-
-                              <p className="font-semibold text-gray-900">
-                                {getBeneficiaryName(
-                                  beneficiary
-                                ) ||
-                                  "Unnamed Beneficiary"}
-                              </p>
-
-                              {beneficiary.relationship && (
-                                <p className="mt-1 text-sm text-gray-500">
-                                  Relationship:{" "}
-                                  {
-                                    beneficiary.relationship
-                                  }
-                                </p>
-                              )}
-
-                              <p className="mt-1 text-xs font-medium text-green-600">
-                                Status: Alive
-                              </p>
-
-                            </div>
-
-                            <div
-                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
-                                selected
-                                  ? "border-teal-600 bg-teal-600 text-white"
-                                  : "border-gray-300"
-                              }`}
-                            >
-                              {selected && "✓"}
-                            </div>
-
-                          </div>
-
+                          <p className="mt-1 text-xs font-medium text-green-600">
+                            Status: Alive
+                          </p>
                         </button>
                       );
                     }
                   )}
-
                 </div>
-
               )}
-
-            </div>
+            </section>
           )}
 
-          {/* =================================================
-              STEP 3 - DEATH INFORMATION
-          ================================================= */}
-
           {selectedBeneficiaryId && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <>
+              {/* DEATH + CONTACT */}
 
-              <div className="mb-6">
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  3. Death & Contact Information
+                </h2>
 
-                <div className="flex items-center gap-3">
+                <p className="mt-1 text-sm text-gray-500">
+                  These contact details will be
+                  shown to the Admin when they
+                  review the notification.
+                </p>
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white">
-                    3
+                <div className="mt-6 grid gap-6 md:grid-cols-2">
+
+                  <div>
+                    <label
+                      htmlFor="dateOfDeath"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Date of Death
+                    </label>
+
+                    <input
+                      id="dateOfDeath"
+                      type="date"
+                      value={
+                        dateOfDeath
+                      }
+                      max={
+                        new Date()
+                          .toISOString()
+                          .split("T")[0]
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setDateOfDeath(
+                          event.target
+                            .value
+                        )
+                      }
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
                   </div>
 
                   <div>
+                    <label
+                      htmlFor="relationshipToDeceased"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Your Relationship to the
+                      Deceased
+                    </label>
 
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      Death Information
-                    </h2>
+                    <input
+                      id="relationshipToDeceased"
+                      name="relationshipToDeceased"
+                      type="text"
+                      value={
+                        relationshipToDeceased
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setRelationshipToDeceased(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="e.g. Spouse, Son, Daughter"
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
+                  </div>
 
-                    <p className="text-sm text-gray-500">
-                      Provide the details relating to the death.
-                    </p>
+                  <div>
+                    <label
+                      htmlFor="contactPerson"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Contact Person
+                    </label>
 
+                    <input
+                      id="contactPerson"
+                      name="contactPerson"
+                      type="text"
+                      value={
+                        contactPerson
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setContactPerson(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Full name"
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="contactNumber"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Contact Number
+                    </label>
+
+                    <input
+                      id="contactNumber"
+                      name="contactNumber"
+                      type="tel"
+                      value={
+                        contactNumber
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setContactNumber(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="e.g. 0821234567"
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
                   </div>
 
                 </div>
+              </section>
 
-              </div>
+              {/* BODY LOCATION */}
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  4. Current Body Location
+                </h2>
 
-                {/* DATE OF DEATH */}
+                <p className="mt-1 text-sm text-gray-500">
+                  Tell LegacyCare where the body
+                  is currently located.
+                </p>
 
-                <div>
-
+                <div className="mt-5">
                   <label
-                    htmlFor="dateOfDeath"
+                    htmlFor="bodyLocationType"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Date of Death
+                    Current Location
                   </label>
 
-                  <input
-                    id="dateOfDeath"
-                    type="date"
-                    value={dateOfDeath}
-                    onChange={(event) =>
-                      setDateOfDeath(
-                        event.target.value
-                      )
-                    }
-                    max={
-                      new Date()
-                        .toISOString()
-                        .split("T")[0]
-                    }
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                    required
-                  />
-
-                </div>
-
-                {/* RELATIONSHIP */}
-
-                <div>
-
-                  <label
-                    htmlFor="relationship"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Your Relationship to the Deceased
-                  </label>
-
-                  <input
-                    id="relationship"
-                    type="text"
+                  <select
+                    id="bodyLocationType"
                     value={
-                      relationshipToDeceased
+                      bodyLocationType
                     }
-                    onChange={(event) =>
-                      setRelationshipToDeceased(
-                        event.target.value
-                      )
+                    onChange={
+                      handleBodyLocationChange
                     }
-                    placeholder="e.g. Son, Daughter, Spouse"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3"
                     required
-                  />
-
-                </div>
-
-                {/* CONTACT PERSON */}
-
-                <div>
-
-                  <label
-                    htmlFor="contactPerson"
-                    className="block text-sm font-medium text-gray-700"
                   >
-                    Contact Person
-                  </label>
+                    <option value="">
+                      Select location
+                    </option>
 
-                  <input
-                    id="contactPerson"
-                    type="text"
-                    value={contactPerson}
-                    onChange={(event) =>
-                      setContactPerson(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Full name"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                    required
-                  />
+                    <option value="Hospital">
+                      Hospital
+                    </option>
 
+                    <option value="LegacyCareMortuary">
+                      LegacyCare Mortuary
+                    </option>
+
+                    <option value="GovernmentMortuary">
+                      Government Mortuary
+                    </option>
+
+                    <option value="HomeScene">
+                      Home / Scene
+                    </option>
+
+                    <option value="Other">
+                      Other
+                    </option>
+                  </select>
                 </div>
 
-                {/* CONTACT NUMBER */}
+                {bodyLocationType ===
+                  "Hospital" && (
+                  <div className="mt-5">
+                    <label
+                      htmlFor="hospitalLocation"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Hospital Name / Address
+                    </label>
 
-                <div>
-
-                  <label
-                    htmlFor="contactNumber"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Contact Number
-                  </label>
-
-                  <input
-                    id="contactNumber"
-                    type="tel"
-                    value={contactNumber}
-                    onChange={(event) =>
-                      setContactNumber(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. 082 123 4567"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none placeholder:text-gray-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                    required
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* =================================================
-              STEP 4 - PROOF OF DEATH
-          ================================================= */}
-
-          {selectedBeneficiaryId && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
-              <div className="mb-6">
-
-                <div className="flex items-center gap-3">
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 text-sm font-semibold text-white">
-                    4
+                    <input
+                      id="hospitalLocation"
+                      type="text"
+                      value={
+                        bodyLocationAddress
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setBodyLocationAddress(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="e.g. Pretoria North Hospital"
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
                   </div>
+                )}
 
-                  <div>
+                {bodyLocationType ===
+                  "GovernmentMortuary" && (
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
 
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      Proof of Death
-                    </h2>
+                    <div>
+                      <label
+                        htmlFor="mortuaryName"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Government Mortuary Name
+                      </label>
 
-                    <p className="text-sm text-gray-500">
-                      Upload the death certificate or
-                      other accepted proof of death.
-                    </p>
+                      <input
+                        id="mortuaryName"
+                        type="text"
+                        value={
+                          mortuaryName
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setMortuaryName(
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="e.g. Pretoria Government Mortuary"
+                        className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="governmentMortuaryAddress"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Mortuary Address
+                      </label>
+
+                      <input
+                        id="governmentMortuaryAddress"
+                        type="text"
+                        value={
+                          bodyLocationAddress
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setBodyLocationAddress(
+                            event.target
+                              .value
+                          )
+                        }
+                        className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                        required
+                      />
+                    </div>
 
                   </div>
+                )}
 
-                </div>
+                {(bodyLocationType ===
+                  "HomeScene" ||
+                  bodyLocationType ===
+                    "Other") && (
+                  <div className="mt-5">
+                    <label
+                      htmlFor="bodyLocationAddress"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Address / Location
+                    </label>
 
-              </div>
+                    <input
+                      id="bodyLocationAddress"
+                      type="text"
+                      value={
+                        bodyLocationAddress
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setBodyLocationAddress(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="Enter the current location"
+                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                      required
+                    />
+                  </div>
+                )}
 
-              <label
-                htmlFor="proofOfDeath"
-                className="block text-sm font-medium text-gray-700"
+                {bodyLocationType ===
+                  "LegacyCareMortuary" && (
+                  <div className="mt-5 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-800">
+                    LegacyCare staff will assign
+                    an available storage unit from
+                    the correct branch. You do not
+                    enter a storage number.
+                  </div>
+                )}
+              </section>
+
+              {/* PROOF */}
+
+              <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  5. Proof of Death
+                </h2>
+
+                <input
+                  id="proofOfDeath"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  onChange={
+                    handleFileChange
+                  }
+                  className="mt-5 block w-full text-sm"
+                  required
+                />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  PDF, JPG, JPEG or PNG.
+                  Maximum file size: 10 MB.
+                </p>
+              </section>
+
+              {/* SUBMIT */}
+
+              <button
+                type="submit"
+                disabled={
+                  submitting
+                }
+                className="w-full rounded-xl bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Death Certificate / Proof of Death
-              </label>
-
-              <input
-                id="proofOfDeath"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="mt-2 block w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-700 file:mr-4 file:border-0 file:bg-teal-50 file:px-4 file:py-3 file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100"
-                required
-              />
-
-              {proofOfDeath && (
-                <div className="mt-3 rounded-lg bg-gray-50 p-3">
-
-                  <p className="text-sm font-medium text-gray-900">
-                    Selected document
-                  </p>
-
-                  <p className="mt-1 text-sm text-gray-500">
-                    {proofOfDeath.name}
-                  </p>
-
-                  <p className="mt-1 text-xs text-gray-400">
-                    {(
-                      proofOfDeath.size /
-                      1024 /
-                      1024
-                    ).toFixed(2)}{" "}
-                    MB
-                  </p>
-
-                </div>
-              )}
-
-              <p className="mt-3 text-xs text-gray-500">
-                Accepted formats: PDF, JPG, JPEG and PNG.
-                Maximum file size: 10 MB.
-              </p>
-
-            </div>
+                {submitting
+                  ? "Submitting..."
+                  : "Submit Death Notification"}
+              </button>
+            </>
           )}
-
-          {/* =================================================
-              SUBMIT
-          ================================================= */}
-
-          {selectedBeneficiaryId && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-
-                <div>
-
-                  <h2 className="font-semibold text-gray-900">
-                    Submit Death Notification
-                  </h2>
-
-                  <p className="mt-1 text-sm leading-6 text-gray-500">
-                    Your submission will be sent to
-                    LegacyCare for verification. The
-                    beneficiary status will only be
-                    updated after staff/admin approval.
-                  </p>
-
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submitting
-                    ? "Submitting..."
-                    : "Submit Death Notification"}
-                </button>
-
-              </div>
-
-            </div>
-          )}
-
         </form>
       )}
-
     </div>
   );
 }
