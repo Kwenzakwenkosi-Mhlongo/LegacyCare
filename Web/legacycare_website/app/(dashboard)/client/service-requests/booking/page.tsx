@@ -1,4 +1,7 @@
-// File: app/(dashboard)/client/service-requests/booking/page.tsx
+// ============================================================================
+// FILE 1:
+// Web/legacycare_website/app/(dashboard)/client/service-requests/booking/page.tsx
+// ============================================================================
 
 "use client";
 
@@ -111,162 +114,218 @@ export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const editServiceRequestId = searchParams.get("edit");
-  const isEditMode = Boolean(editServiceRequestId);
+  const editServiceRequestId =
+    searchParams.get("edit");
 
-  const [appointmentId, setAppointmentId] =
-    useState<number | null>(null);
+  const isEditMode =
+    Boolean(editServiceRequestId);
 
-  const [appointmentType, setAppointmentType] =
+  const [
+    appointmentId,
+    setAppointmentId,
+  ] =
+    useState<number | null>(
+      null
+    );
+
+  const [
+    appointmentType,
+    setAppointmentType,
+  ] =
     useState("");
 
-  const [branchId, setBranchId] =
+  const [
+    branchId,
+    setBranchId,
+  ] =
     useState("");
 
-  const [date, setDate] =
+  const [
+    date,
+    setDate,
+  ] =
     useState("");
 
-  const [time, setTime] =
+  const [
+    time,
+    setTime,
+  ] =
     useState("");
 
-  const [clientNotes, setClientNotes] =
+  const [
+    clientNotes,
+    setClientNotes,
+  ] =
     useState("");
 
-  const [priority, setPriority] =
+  const [
+    priority,
+    setPriority,
+  ] =
     useState("Normal");
 
-  const [acceptPriorityFee, setAcceptPriorityFee] =
+  const [
+    acceptPriorityFee,
+    setAcceptPriorityFee,
+  ] =
     useState(false);
 
-  const [branches, setBranches] =
+  const [
+    branches,
+    setBranches,
+  ] =
     useState<Branch[]>([]);
 
-  const [loadingBranches, setLoadingBranches] =
+  const [
+    loadingBranches,
+    setLoadingBranches,
+  ] =
     useState(true);
 
-  const [loadingAppointment, setLoadingAppointment] =
+  const [
+    loadingAppointment,
+    setLoadingAppointment,
+  ] =
     useState(isEditMode);
 
-  const [submitting, setSubmitting] =
+  const [
+    submitting,
+    setSubmitting,
+  ] =
     useState(false);
 
-  const [error, setError] =
+  const [
+    error,
+    setError,
+  ] =
     useState("");
 
   const minimumDate =
     useMemo(
-      () => getMinimumDate(),
+      () =>
+        getMinimumDate(),
       []
     );
 
   useEffect(() => {
-    const loadBranches = async () => {
-      try {
-        setLoadingBranches(true);
+    const loadBranches =
+      async () => {
+        try {
+          setLoadingBranches(
+            true
+          );
 
-        const token =
-          getToken();
+          const token =
+            getToken();
 
-        if (!token) {
+          if (!token) {
+            setError(
+              "You are not logged in."
+            );
+
+            return;
+          }
+
+          const response =
+            await fetch(
+              `${API_URL}/Branch`,
+              {
+                method: "GET",
+                headers: {
+                  Accept:
+                    "application/json",
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await readApiResponse<
+              unknown
+            >(
+              response
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              getApiErrorMessage(
+                data as ApiError | null,
+                `Unable to load branches (${response.status}).`
+              )
+            );
+          }
+
+          const mappedBranches: Branch[] =
+            Array.isArray(data)
+              ? data
+                  .map(
+                    (branch) => {
+                      const value =
+                        branch as Record<
+                          string,
+                          unknown
+                        >;
+
+                      return {
+                        branchId:
+                          String(
+                            value.branchId ??
+                              value.id ??
+                              ""
+                          ),
+
+                        branchName:
+                          typeof value.branchName ===
+                          "string"
+                            ? value.branchName
+                            : null,
+
+                        name:
+                          typeof value.name ===
+                          "string"
+                            ? value.name
+                            : null,
+                      };
+                    }
+                  )
+                  .filter(
+                    (branch) =>
+                      branch.branchId !==
+                      ""
+                  )
+              : [];
+
+          setBranches(
+            mappedBranches
+          );
+        } catch (err) {
+          console.error(
+            "[BookingPage] Load branches error:",
+            err
+          );
+
           setError(
-            "You are not logged in."
+            err instanceof Error
+              ? err.message
+              : "Unable to load branches."
           );
-
-          return;
-        }
-
-        const response =
-          await fetch(
-            `${API_URL}/Branch`,
-            {
-              method: "GET",
-              headers: {
-                Accept:
-                  "application/json",
-                Authorization:
-                  `Bearer ${token}`,
-              },
-              cache: "no-store",
-            }
-          );
-
-        const data =
-          await readApiResponse<unknown>(
-            response
-          );
-
-        if (!response.ok) {
-          throw new Error(
-            getApiErrorMessage(
-              data as ApiError | null,
-              `Unable to load branches (${response.status}).`
-            )
+        } finally {
+          setLoadingBranches(
+            false
           );
         }
-
-        const mappedBranches: Branch[] =
-          Array.isArray(data)
-            ? data
-                .map((branch) => {
-                  const value =
-                    branch as Record<
-                      string,
-                      unknown
-                    >;
-
-                  return {
-                    branchId:
-                      String(
-                        value.branchId ??
-                          value.id ??
-                          ""
-                      ),
-
-                    branchName:
-                      typeof value.branchName ===
-                      "string"
-                        ? value.branchName
-                        : null,
-
-                    name:
-                      typeof value.name ===
-                      "string"
-                        ? value.name
-                        : null,
-                  };
-                })
-                .filter(
-                  (branch) =>
-                    branch.branchId !== ""
-                )
-            : [];
-
-        setBranches(
-          mappedBranches
-        );
-      } catch (err) {
-        console.error(
-          "[BookingPage] Load branches error:",
-          err
-        );
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load branches."
-        );
-      } finally {
-        setLoadingBranches(
-          false
-        );
-      }
-    };
+      };
 
     void loadBranches();
   }, []);
 
   useEffect(() => {
-    if (!editServiceRequestId) {
+    if (
+      !editServiceRequestId
+    ) {
       setLoadingAppointment(
         false
       );
@@ -320,7 +379,8 @@ export default function BookingPage() {
             await fetch(
               `${API_URL}/Appointment/my/by-service-request/${serviceRequestId}`,
               {
-                method: "GET",
+                method:
+                  "GET",
                 headers: {
                   Accept:
                     "application/json",
@@ -410,7 +470,8 @@ export default function BookingPage() {
             );
 
           if (
-            hoursRemaining <= 24
+            hoursRemaining <=
+            24
           ) {
             throw new Error(
               "This appointment can no longer be edited because 24 hours or less remain."
@@ -472,7 +533,8 @@ export default function BookingPage() {
           );
 
           setAcceptPriorityFee(
-            savedPriority.toLowerCase() ===
+            savedPriority
+              .toLowerCase() ===
               "high"
           );
         } catch (err) {
@@ -494,7 +556,9 @@ export default function BookingPage() {
       };
 
     void loadAppointment();
-  }, [editServiceRequestId]);
+  }, [
+    editServiceRequestId,
+  ]);
 
   const handleSubmit =
     async (
@@ -538,7 +602,8 @@ export default function BookingPage() {
       }
 
       if (
-        priority === "High" &&
+        priority ===
+          "High" &&
         !acceptPriorityFee
       ) {
         setError(
@@ -588,7 +653,8 @@ export default function BookingPage() {
         );
 
       if (
-        hoursRemaining <= 24
+        hoursRemaining <=
+        24
       ) {
         setError(
           "Appointments must be booked more than 24 hours in advance."
@@ -615,7 +681,6 @@ export default function BookingPage() {
 
         const payload = {
           appointmentType,
-
           branchId,
 
           preferredDateTime:
@@ -630,7 +695,9 @@ export default function BookingPage() {
           acceptPriorityFee,
         };
 
-        if (isEditMode) {
+        if (
+          isEditMode
+        ) {
           if (
             !appointmentId
           ) {
@@ -643,7 +710,8 @@ export default function BookingPage() {
             await fetch(
               `${API_URL}/Appointment/my/${appointmentId}`,
               {
-                method: "PUT",
+                method:
+                  "PUT",
                 headers: {
                   "Content-Type":
                     "application/json",
@@ -676,10 +744,8 @@ export default function BookingPage() {
           }
 
           router.push(
-            `/client/service-requests/${editServiceRequestId}`
+            `/client/service-requests/${editServiceRequestId}?appointmentUpdated=true`
           );
-
-          router.refresh();
 
           return;
         }
@@ -688,7 +754,8 @@ export default function BookingPage() {
           await fetch(
             `${API_URL}/Appointment`,
             {
-              method: "POST",
+              method:
+                "POST",
               headers: {
                 "Content-Type":
                   "application/json",
@@ -721,10 +788,8 @@ export default function BookingPage() {
         }
 
         router.push(
-          "/client/service-requests"
+          "/client/service-requests?appointmentCreated=true"
         );
-
-        router.refresh();
       } catch (err) {
         console.error(
           "[BookingPage] Submit error:",
@@ -743,7 +808,9 @@ export default function BookingPage() {
       }
     };
 
-  if (loadingAppointment) {
+  if (
+    loadingAppointment
+  ) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -833,7 +900,9 @@ export default function BookingPage() {
             {appointmentTypes.map(
               (type) => (
                 <label
-                  key={type.value}
+                  key={
+                    type.value
+                  }
                   className={`block cursor-pointer rounded-xl border p-4 transition ${
                     appointmentType ===
                     type.value
@@ -856,8 +925,7 @@ export default function BookingPage() {
                         event
                       ) =>
                         setAppointmentType(
-                          event
-                            .target
+                          event.target
                             .value
                         )
                       }
@@ -1032,37 +1100,31 @@ export default function BookingPage() {
               Select a time
             </option>
 
-            <option value="09:00">
-              09:00
-            </option>
-
-            <option value="10:00">
-              10:00
-            </option>
-
-            <option value="11:00">
-              11:00
-            </option>
-
-            <option value="12:00">
-              12:00
-            </option>
-
-            <option value="13:00">
-              13:00
-            </option>
-
-            <option value="14:00">
-              14:00
-            </option>
-
-            <option value="15:00">
-              15:00
-            </option>
-
-            <option value="16:00">
-              16:00
-            </option>
+            {[
+              "09:00",
+              "10:00",
+              "11:00",
+              "12:00",
+              "13:00",
+              "14:00",
+              "15:00",
+              "16:00",
+            ].map(
+              (value) => (
+                <option
+                  key={
+                    value
+                  }
+                  value={
+                    value
+                  }
+                >
+                  {
+                    value
+                  }
+                </option>
+              )
+            )}
           </select>
         </div>
 
@@ -1194,8 +1256,7 @@ export default function BookingPage() {
                         event
                       ) =>
                         setAcceptPriorityFee(
-                          event
-                            .target
+                          event.target
                             .checked
                         )
                       }
@@ -1262,11 +1323,6 @@ export default function BookingPage() {
             disabled={
               submitting ||
               loadingBranches ||
-              Boolean(
-                error &&
-                  isEditMode &&
-                  !appointmentId
-              ) ||
               (
                 priority ===
                   "High" &&
@@ -1285,34 +1341,6 @@ export default function BookingPage() {
           </button>
         </div>
       </form>
-
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
-        <h2 className="font-semibold text-blue-900">
-          Appointment Policy
-        </h2>
-
-        <ul className="mt-2 space-y-1 text-sm text-blue-800">
-          <li>
-            • Appointments must be booked more than 24 hours in advance.
-          </li>
-
-          <li>
-            • You may edit while more than 24 hours remain.
-          </li>
-
-          <li>
-            • Changing the preferred date or branch sends the appointment back for Clerk confirmation.
-          </li>
-
-          <li>
-            • The Clerk may confirm your requested time or reschedule it.
-          </li>
-
-          <li>
-            • High Priority requests have an additional R100.00 service fee.
-          </li>
-        </ul>
-      </div>
     </div>
   );
 }

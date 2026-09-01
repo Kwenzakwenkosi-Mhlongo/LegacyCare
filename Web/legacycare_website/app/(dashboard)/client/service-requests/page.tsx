@@ -1,9 +1,16 @@
-// app/(dashboard)/client/service-requests/page.tsx
+// File: Web/legacycare_website/app/(dashboard)/client/service-requests/page.tsx
 
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  useSearchParams,
+} from "next/navigation";
 import { getToken } from "@/lib/auth";
 
 // ============================================================
@@ -23,7 +30,8 @@ const API_URL = (
 // CONSTANTS
 // ============================================================
 
-const LEGACYCARE_CONTACT_NUMBER = "0817381235";
+const LEGACYCARE_CONTACT_NUMBER =
+  "0817381235";
 
 type ServiceKey =
   | "death"
@@ -142,7 +150,10 @@ type ServiceRequest = {
 
   description?: string | null;
 
-  assignedStaffId?: number | null;
+  assignedStaffId?:
+    | string
+    | number
+    | null;
 
   createdDate: string;
   updatedDate?: string | null;
@@ -156,12 +167,36 @@ type ServiceRequest = {
   funeralRequestId?: string | null;
 };
 
+type AppointmentSummary = {
+  appointmentId: number;
+  serviceRequestId: number;
+
+  clientId: string;
+  branchId: string;
+
+  appointmentType: string;
+
+  preferredDateTime: string;
+  confirmedDateTime?: string | null;
+
+  status: string;
+  priority: string;
+
+  assignedStaffId?: string | null;
+
+  clientNotes?: string | null;
+};
+
 // ============================================================
 // HELPERS
 // ============================================================
 
-function normalize(value?: string | null) {
-  return (value || "")
+function normalize(
+  value?: string | null
+) {
+  return (
+    value || ""
+  )
     .trim()
     .toLowerCase();
 }
@@ -170,52 +205,70 @@ function getServiceKey(
   requestType: string
 ): ServiceKey {
   const type =
-    normalize(requestType);
+    normalize(
+      requestType
+    );
 
   if (
-    type.includes("death")
+    type.includes(
+      "death"
+    )
   ) {
     return "death";
   }
 
   if (
-    type.includes("funeral")
+    type.includes(
+      "funeral"
+    )
   ) {
     return "funeral";
   }
 
   if (
-    type.includes("appointment")
+    type.includes(
+      "appointment"
+    )
   ) {
     return "appointment";
   }
 
   if (
-    type.includes("quote")
+    type.includes(
+      "quote"
+    )
   ) {
     return "quote";
   }
 
   if (
-    type.includes("beneficiary")
+    type.includes(
+      "beneficiary"
+    )
   ) {
     return "beneficiary";
   }
 
   if (
-    type.includes("policy")
+    type.includes(
+      "policy"
+    )
   ) {
     return "policy";
   }
 
   if (
-    type.includes("payment")
+    type.includes(
+      "payment"
+    )
   ) {
     return "payment";
   }
 
   if (
-    type.includes("document")
+    type.includes(
+      "document"
+    )
   ) {
     return "documents";
   }
@@ -243,13 +296,21 @@ function getStatusStyle(
   status: string
 ) {
   switch (
-    normalize(status)
+    normalize(
+      status
+    )
   ) {
+    case "requested":
     case "pending":
       return "bg-amber-100 text-amber-700 border-amber-200";
 
+    case "confirmed":
     case "approved":
       return "bg-green-100 text-green-700 border-green-200";
+
+    case "rescheduled":
+    case "in progress":
+      return "bg-purple-100 text-purple-700 border-purple-200";
 
     case "completed":
       return "bg-blue-100 text-blue-700 border-blue-200";
@@ -260,19 +321,46 @@ function getStatusStyle(
     case "cancelled":
       return "bg-gray-100 text-gray-600 border-gray-200";
 
-    case "in progress":
-      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "noshow":
+    case "no show":
+      return "bg-orange-100 text-orange-700 border-orange-200";
 
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
   }
 }
 
+function formatStatus(
+  status?: string | null
+) {
+  if (!status) {
+    return "Not available";
+  }
+
+  const normalized =
+    normalize(
+      status
+    );
+
+  if (
+    normalized ===
+      "noshow" ||
+    normalized ===
+      "no show"
+  ) {
+    return "No Show";
+  }
+
+  return status;
+}
+
 function getPriorityStyle(
   priority: string
 ) {
   switch (
-    normalize(priority)
+    normalize(
+      priority
+    )
   ) {
     case "high":
       return "bg-red-50 text-red-700 border-red-200";
@@ -296,7 +384,9 @@ function formatDate(
   }
 
   const parsedDate =
-    new Date(date);
+    new Date(
+      date
+    );
 
   if (
     Number.isNaN(
@@ -306,15 +396,14 @@ function formatDate(
     return "Unknown";
   }
 
-  return parsedDate
-    .toLocaleDateString(
-      "en-ZA",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    );
+  return parsedDate.toLocaleDateString(
+    "en-ZA",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
 }
 
 function formatTime(
@@ -325,7 +414,9 @@ function formatTime(
   }
 
   const parsedDate =
-    new Date(date);
+    new Date(
+      date
+    );
 
   if (
     Number.isNaN(
@@ -335,14 +426,13 @@ function formatTime(
     return "";
   }
 
-  return parsedDate
-    .toLocaleTimeString(
-      "en-ZA",
-      {
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
+  return parsedDate.toLocaleTimeString(
+    "en-ZA",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
 }
 
 // ============================================================
@@ -350,12 +440,28 @@ function formatTime(
 // ============================================================
 
 export default function ServiceRequestsPage() {
+  const searchParams =
+    useSearchParams();
+
+  const appointmentCreated =
+    searchParams.get(
+      "appointmentCreated"
+    ) === "true";
+
   const [
     requests,
     setRequests,
   ] =
     useState<
       ServiceRequest[]
+    >([]);
+
+  const [
+    appointments,
+    setAppointments,
+  ] =
+    useState<
+      AppointmentSummary[]
     >([]);
 
   const [
@@ -391,10 +497,38 @@ export default function ServiceRequestsPage() {
     useState(true);
 
   const [
+    loadingAppointments,
+    setLoadingAppointments,
+  ] =
+    useState(true);
+
+  const [
     error,
     setError,
   ] =
     useState("");
+
+  // ============================================================
+  // APPOINTMENT LOOKUP
+  // ============================================================
+
+  const appointmentByServiceRequestId =
+    useMemo(
+      () =>
+        new Map(
+          appointments.map(
+            (
+              appointment
+            ) => [
+              appointment.serviceRequestId,
+              appointment,
+            ]
+          )
+        ),
+      [
+        appointments,
+      ]
+    );
 
   // ============================================================
   // SELECTED REQUESTS
@@ -402,15 +536,20 @@ export default function ServiceRequestsPage() {
 
   const selectedRequests =
     useMemo(() => {
-      if (!selectedService) {
+      if (
+        !selectedService
+      ) {
         return [];
       }
 
       return requests.filter(
-        (request) =>
+        (
+          request
+        ) =>
           getServiceKey(
             request.requestType
-          ) === selectedService
+          ) ===
+          selectedService
       );
     }, [
       requests,
@@ -429,7 +568,8 @@ export default function ServiceRequestsPage() {
       > = {
         death: 0,
         funeral: 0,
-        appointment: 0,
+        appointment:
+          appointments.length,
         quote: 0,
         beneficiary: 0,
         policy: 0,
@@ -447,14 +587,25 @@ export default function ServiceRequestsPage() {
             request.requestType
           );
 
-        counts[key] += 1;
+        if (
+          key ===
+          "appointment"
+        ) {
+          continue;
+        }
+
+        counts[key] +=
+          1;
       }
 
       return counts;
-    }, [requests]);
+    }, [
+      requests,
+      appointments,
+    ]);
 
   // ============================================================
-  // SELECTED STATUS COUNTS
+  // GENERIC SUMMARY
   // ============================================================
 
   const selectedSummary =
@@ -470,7 +621,8 @@ export default function ServiceRequestsPage() {
         const request
         of selectedRequests
       ) {
-        summary.total += 1;
+        summary.total +=
+          1;
 
         const status =
           normalize(
@@ -478,26 +630,122 @@ export default function ServiceRequestsPage() {
           );
 
         if (
-          status === "pending"
+          status ===
+          "pending"
         ) {
-          summary.pending += 1;
+          summary.pending +=
+            1;
         }
 
         if (
-          status === "approved"
+          status ===
+          "approved"
         ) {
-          summary.approved += 1;
+          summary.approved +=
+            1;
         }
 
         if (
-          status === "rejected"
+          status ===
+          "rejected"
         ) {
-          summary.rejected += 1;
+          summary.rejected +=
+            1;
         }
       }
 
       return summary;
-    }, [selectedRequests]);
+    }, [
+      selectedRequests,
+    ]);
+
+  // ============================================================
+  // APPOINTMENT SUMMARY
+  // ============================================================
+
+  const appointmentSummary =
+    useMemo(() => {
+      return {
+        total:
+          appointments.length,
+
+        requested:
+          appointments.filter(
+            (
+              appointment
+            ) =>
+              normalize(
+                appointment.status
+              ) ===
+              "requested"
+          ).length,
+
+        confirmed:
+          appointments.filter(
+            (
+              appointment
+            ) =>
+              normalize(
+                appointment.status
+              ) ===
+              "confirmed"
+          ).length,
+
+        rescheduled:
+          appointments.filter(
+            (
+              appointment
+            ) =>
+              normalize(
+                appointment.status
+              ) ===
+              "rescheduled"
+          ).length,
+
+        completed:
+          appointments.filter(
+            (
+              appointment
+            ) =>
+              normalize(
+                appointment.status
+              ) ===
+              "completed"
+          ).length,
+
+        cancelled:
+          appointments.filter(
+            (
+              appointment
+            ) =>
+              normalize(
+                appointment.status
+              ) ===
+              "cancelled"
+          ).length,
+
+        noShow:
+          appointments.filter(
+            (
+              appointment
+            ) => {
+              const status =
+                normalize(
+                  appointment.status
+                );
+
+              return (
+                status ===
+                  "noshow" ||
+                status ===
+                  "no show"
+              );
+            }
+          ).length,
+      };
+    }, [
+      appointments,
+    ]);
 
   // ============================================================
   // PAGE LOAD
@@ -506,77 +754,97 @@ export default function ServiceRequestsPage() {
   useEffect(() => {
     document.title =
       "Service Requests";
-  }, []);
+
+    if (
+      appointmentCreated
+    ) {
+      setSelectedService(
+        "appointment"
+      );
+    }
+  }, [
+    appointmentCreated,
+  ]);
 
   // ============================================================
   // LOAD BRANCHES
   // ============================================================
 
-  useEffect(() => {
-    const loadBranches =
-      async () => {
-        try {
-          setLoadingBranches(
-            true
+  const loadBranches =
+    async () => {
+      try {
+        setLoadingBranches(
+          true
+        );
+
+        const token =
+          getToken();
+
+        if (!token) {
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/Branch`,
+            {
+              headers: {
+                Accept:
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              cache:
+                "no-store",
+            }
           );
 
-          const token =
-            getToken();
-
-          if (!token) {
-            return;
-          }
-
-          const response =
-            await fetch(
-              `${API_URL}/Branch`,
-              {
-                headers: {
-                  Accept:
-                    "application/json",
-
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-
-                cache:
-                  "no-store",
-              }
+        const data =
+          await response
+            .json()
+            .catch(
+              () =>
+                null
             );
 
-          const data =
-            await response
-              .json()
-              .catch(
-                () => null
-              );
-
-          if (!response.ok) {
-            setBranches([]);
-            return;
-          }
-
+        if (
+          !response.ok
+        ) {
           setBranches(
-            Array.isArray(
-              data
-            )
-              ? data
-              : []
-          );
-        } catch (err) {
-          console.error(
-            "[Branch] Error:",
-            err
+            []
           );
 
-          setBranches([]);
-        } finally {
-          setLoadingBranches(
-            false
-          );
+          return;
         }
-      };
 
+        setBranches(
+          Array.isArray(
+            data
+          )
+            ? data
+            : []
+        );
+      } catch (
+        err
+      ) {
+        console.error(
+          "[Branch] Error:",
+          err
+        );
+
+        setBranches(
+          []
+        );
+      } finally {
+        setLoadingBranches(
+          false
+        );
+      }
+    };
+
+  useEffect(() => {
     void loadBranches();
   }, []);
 
@@ -584,48 +852,143 @@ export default function ServiceRequestsPage() {
   // BRANCH LOOKUP
   // ============================================================
 
-  const getBranchName = (
-    request:
-      ServiceRequest
-  ) => {
-    if (
-      request.branchName
-    ) {
-      return request.branchName;
-    }
+  const getBranchNameById =
+    (
+      branchId?:
+        string | null
+    ) => {
+      if (
+        !branchId
+      ) {
+        return "Not specified";
+      }
 
-    if (
-      !request.branchId
-    ) {
-      return "Not specified";
-    }
+      const id =
+        normalize(
+          branchId
+        );
 
-    const id =
-      request.branchId
-        .trim()
-        .toLowerCase();
+      const branch =
+        branches.find(
+          (
+            item
+          ) =>
+            normalize(
+              item.branchId
+            ) === id
+        );
 
-    const branch =
-      branches.find(
-        (item) =>
-          item.branchId
-            .trim()
-            .toLowerCase() ===
-          id
+      if (
+        branch
+      ) {
+        return branch.branchName;
+      }
+
+      if (
+        loadingBranches
+      ) {
+        return "Loading branch...";
+      }
+
+      return branchId;
+    };
+
+  const getBranchName =
+    (
+      request:
+        ServiceRequest
+    ) => {
+      if (
+        request.branchName
+      ) {
+        return request.branchName;
+      }
+
+      return getBranchNameById(
+        request.branchId
       );
+    };
 
-    if (branch) {
-      return branch.branchName;
-    }
+  // ============================================================
+  // LOAD APPOINTMENTS
+  // ============================================================
 
-    if (
-      loadingBranches
-    ) {
-      return "Loading branch...";
-    }
+  const loadAppointments =
+    async () => {
+      try {
+        setLoadingAppointments(
+          true
+        );
 
-    return request.branchId;
-  };
+        const token =
+          getToken();
+
+        if (!token) {
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/Appointment/my`,
+            {
+              headers: {
+                Accept:
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              cache:
+                "no-store",
+            }
+          );
+
+        const data =
+          await response
+            .json()
+            .catch(
+              () =>
+                null
+            );
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            data?.message ||
+              `Failed to load appointments (${response.status}).`
+          );
+        }
+
+        setAppointments(
+          Array.isArray(
+            data
+          )
+            ? data
+            : []
+        );
+      } catch (
+        err
+      ) {
+        console.error(
+          "[Appointment] Error:",
+          err
+        );
+
+        setAppointments(
+          []
+        );
+      } finally {
+        setLoadingAppointments(
+          false
+        );
+      }
+    };
+
+  useEffect(() => {
+    void loadAppointments();
+  }, []);
 
   // ============================================================
   // LOAD REQUESTS
@@ -637,12 +1000,16 @@ export default function ServiceRequestsPage() {
         false
     ) => {
       try {
-        if (showRefresh) {
+        if (
+          showRefresh
+        ) {
           setRefreshing(
             true
           );
         } else {
-          setLoading(true);
+          setLoading(
+            true
+          );
         }
 
         setError("");
@@ -679,10 +1046,13 @@ export default function ServiceRequestsPage() {
           await response
             .json()
             .catch(
-              () => null
+              () =>
+                null
             );
 
-        if (!response.ok) {
+        if (
+          !response.ok
+        ) {
           throw new Error(
             data?.message ||
               `Failed to load requests (${response.status})`
@@ -690,11 +1060,15 @@ export default function ServiceRequestsPage() {
         }
 
         setRequests(
-          Array.isArray(data)
+          Array.isArray(
+            data
+          )
             ? data
             : []
         );
-      } catch (err) {
+      } catch (
+        err
+      ) {
         console.error(
           "[ServiceRequest] Error:",
           err
@@ -706,7 +1080,9 @@ export default function ServiceRequestsPage() {
             : "Unable to load your service requests."
         );
       } finally {
-        setLoading(false);
+        setLoading(
+          false
+        );
 
         setRefreshing(
           false
@@ -719,12 +1095,37 @@ export default function ServiceRequestsPage() {
   }, []);
 
   // ============================================================
+  // REFRESH
+  // ============================================================
+
+  const refreshAll =
+    async () => {
+      setRefreshing(
+        true
+      );
+
+      await Promise.all([
+        loadRequests(
+          true
+        ),
+        loadAppointments(),
+        loadBranches(),
+      ]);
+
+      setRefreshing(
+        false
+      );
+    };
+
+  // ============================================================
   // SELECTED SERVICE DETAILS
   // ============================================================
 
   const selectedDefinition =
     requestTypes.find(
-      (item) =>
+      (
+        item
+      ) =>
         item.key ===
         selectedService
     );
@@ -759,6 +1160,36 @@ export default function ServiceRequestsPage() {
 
       </div>
 
+      {/* APPOINTMENT SUCCESS */}
+
+      {appointmentCreated && (
+
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+
+          <div className="flex items-start gap-3">
+
+            <div className="text-2xl">
+              ✅
+            </div>
+
+            <div>
+
+              <h2 className="font-semibold text-green-900">
+                Appointment booked successfully
+              </h2>
+
+              <p className="mt-1 text-sm leading-6 text-green-800">
+                Your appointment request has been submitted to LegacyCare and is waiting for Clerk confirmation.
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
       {/* ========================================================
           START A REQUEST
       ======================================================== */}
@@ -776,7 +1207,9 @@ export default function ServiceRequestsPage() {
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
 
           {requestTypes.map(
-            (service) => (
+            (
+              service
+            ) => (
 
               <Link
                 key={
@@ -789,15 +1222,21 @@ export default function ServiceRequestsPage() {
               >
 
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-2xl">
-                  {service.icon}
+                  {
+                    service.icon
+                  }
                 </div>
 
                 <h3 className="mt-5 text-lg font-semibold text-gray-900">
-                  {service.title}
+                  {
+                    service.title
+                  }
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-gray-500">
-                  {service.description}
+                  {
+                    service.description
+                  }
                 </p>
 
                 <div className="mt-5 text-sm font-semibold text-teal-600">
@@ -842,18 +1281,18 @@ export default function ServiceRequestsPage() {
           <button
             type="button"
             onClick={() =>
-              void loadRequests(
-                true
-              )
+              void refreshAll()
             }
             disabled={
               refreshing
             }
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            {refreshing
-              ? "Refreshing..."
-              : "↻ Refresh"}
+            {
+              refreshing
+                ? "Refreshing..."
+                : "↻ Refresh"
+            }
           </button>
 
         </div>
@@ -876,7 +1315,9 @@ export default function ServiceRequestsPage() {
             error && (
 
               <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">
-                {error}
+                {
+                  error
+                }
               </div>
 
             )}
@@ -891,7 +1332,9 @@ export default function ServiceRequestsPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
 
                   {requestTypes.map(
-                    (service) => {
+                    (
+                      service
+                    ) => {
 
                       const active =
                         selectedService ===
@@ -919,7 +1362,9 @@ export default function ServiceRequestsPage() {
                           <div className="flex items-start justify-between gap-3">
 
                             <span className="text-2xl">
-                              {service.icon}
+                              {
+                                service.icon
+                              }
                             </span>
 
                             <span
@@ -939,7 +1384,9 @@ export default function ServiceRequestsPage() {
                           </div>
 
                           <p className="mt-3 text-sm font-semibold text-gray-900">
-                            {service.title}
+                            {
+                              service.title
+                            }
                           </p>
 
                         </button>
@@ -1026,215 +1473,439 @@ export default function ServiceRequestsPage() {
 
                       </div>
 
-                      {/* SELECTED SUMMARY */}
+                      {/* APPOINTMENT SUMMARY */}
 
-                      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                      {selectedService ===
+                        "appointment" && (
 
-                        <div className="rounded-xl bg-gray-50 p-4">
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
 
-                          <p className="text-xs font-medium uppercase text-gray-500">
-                            Total
-                          </p>
+                          <div className="rounded-xl bg-gray-50 p-4">
 
-                          <p className="mt-1 text-2xl font-semibold text-gray-900">
-                            {
-                              selectedSummary.total
-                            }
-                          </p>
+                            <p className="text-xs font-medium uppercase text-gray-500">
+                              Total
+                            </p>
 
-                        </div>
+                            <p className="mt-1 text-2xl font-semibold text-gray-900">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.total
+                              }
+                            </p>
 
-                        <div className="rounded-xl bg-amber-50 p-4">
-
-                          <p className="text-xs font-medium uppercase text-amber-700">
-                            Pending
-                          </p>
-
-                          <p className="mt-1 text-2xl font-semibold text-amber-800">
-                            {
-                              selectedSummary.pending
-                            }
-                          </p>
-
-                        </div>
-
-                        <div className="rounded-xl bg-green-50 p-4">
-
-                          <p className="text-xs font-medium uppercase text-green-700">
-                            Approved
-                          </p>
-
-                          <p className="mt-1 text-2xl font-semibold text-green-800">
-                            {
-                              selectedSummary.approved
-                            }
-                          </p>
-
-                        </div>
-
-                        <div className="rounded-xl bg-red-50 p-4">
-
-                          <p className="text-xs font-medium uppercase text-red-700">
-                            Rejected
-                          </p>
-
-                          <p className="mt-1 text-2xl font-semibold text-red-800">
-                            {
-                              selectedSummary.rejected
-                            }
-                          </p>
-
-                        </div>
-
-                      </div>
-
-                      {/* NO REQUESTS */}
-
-                      {selectedRequests.length ===
-                        0 && (
-
-                        <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
-
-                          <div className="text-4xl">
-                            {
-                              selectedDefinition.icon
-                            }
                           </div>
 
-                          <h3 className="mt-4 font-semibold text-gray-900">
-                            No{" "}
-                            {
-                              selectedDefinition.title
-                            }{" "}
-                            requests yet
-                          </h3>
+                          <div className="rounded-xl bg-amber-50 p-4">
 
-                          <Link
-                            href={
-                              selectedDefinition.href
-                            }
-                            className="mt-5 inline-flex rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
-                          >
-                            Start Request
-                          </Link>
+                            <p className="text-xs font-medium uppercase text-amber-700">
+                              Requested
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-amber-800">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.requested
+                              }
+                            </p>
+
+                          </div>
+
+                          <div className="rounded-xl bg-green-50 p-4">
+
+                            <p className="text-xs font-medium uppercase text-green-700">
+                              Confirmed
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-green-800">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.confirmed
+                              }
+                            </p>
+
+                          </div>
+
+                          <div className="rounded-xl bg-purple-50 p-4">
+
+                            <p className="text-xs font-medium uppercase text-purple-700">
+                              Rescheduled
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-purple-800">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.rescheduled
+                              }
+                            </p>
+
+                          </div>
+
+                          <div className="rounded-xl bg-blue-50 p-4">
+
+                            <p className="text-xs font-medium uppercase text-blue-700">
+                              Completed
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-blue-800">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.completed
+                              }
+                            </p>
+
+                          </div>
+
+                          <div className="rounded-xl bg-gray-100 p-4">
+
+                            <p className="text-xs font-medium uppercase text-gray-600">
+                              Cancelled
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-gray-900">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.cancelled
+                              }
+                            </p>
+
+                          </div>
+
+                          <div className="rounded-xl bg-orange-50 p-4">
+
+                            <p className="text-xs font-medium uppercase text-orange-700">
+                              No Show
+                            </p>
+
+                            <p className="mt-1 text-2xl font-semibold text-orange-800">
+                              {
+                                loadingAppointments
+                                  ? "—"
+                                  : appointmentSummary.noShow
+                              }
+                            </p>
+
+                          </div>
 
                         </div>
 
                       )}
 
-                      {/* REQUEST CARDS */}
+                      {/* GENERIC SUMMARY */}
 
-                      {selectedRequests.map(
-                        (request) => (
+                      {selectedService !==
+                        "appointment" && (
 
-                          <div
-                            key={
-                              request.serviceRequestId
-                            }
-                            className="rounded-xl border border-gray-200 p-5 transition hover:border-teal-300 hover:shadow-sm"
-                          >
+                        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 
-                            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="rounded-xl bg-gray-50 p-4">
 
-                              <div className="flex items-start gap-4">
+                            <p className="text-xs font-medium uppercase text-gray-500">
+                              Total
+                            </p>
 
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-2xl">
-                                  {
-                                    getRequestIcon(
-                                      request.requestType
-                                    )
-                                  }
-                                </div>
+                            <p className="mt-1 text-2xl font-semibold text-gray-900">
+                              {
+                                selectedSummary.total
+                              }
+                            </p>
 
-                                <div className="min-w-0">
+                          </div>
 
-                                  <div className="flex flex-wrap items-center gap-2">
+                          <div className="rounded-xl bg-amber-50 p-4">
 
-                                    <h4 className="font-semibold text-gray-900">
-                                      REQ-
-                                      {String(
-                                        request.serviceRequestId
-                                      ).padStart(
-                                        5,
-                                        "0"
-                                      )}
-                                    </h4>
+                            <p className="text-xs font-medium uppercase text-amber-700">
+                              Pending
+                            </p>
 
-                                    <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
-                                      {
-                                        request.requestType
-                                      }
-                                    </span>
+                            <p className="mt-1 text-2xl font-semibold text-amber-800">
+                              {
+                                selectedSummary.pending
+                              }
+                            </p>
 
-                                  </div>
+                          </div>
 
-                                  <div className="mt-3">
+                          <div className="rounded-xl bg-green-50 p-4">
 
-                                    <p className="text-xs font-medium uppercase text-gray-500">
-                                      Branch
-                                    </p>
+                            <p className="text-xs font-medium uppercase text-green-700">
+                              Approved
+                            </p>
 
-                                    <p className="mt-1 text-sm font-medium text-gray-900">
-                                      {
-                                        getBranchName(
-                                          request
-                                        )
-                                      }
-                                    </p>
+                            <p className="mt-1 text-2xl font-semibold text-green-800">
+                              {
+                                selectedSummary.approved
+                              }
+                            </p>
 
-                                  </div>
+                          </div>
 
-                                  {request.description && (
+                          <div className="rounded-xl bg-red-50 p-4">
 
-                                    <p className="mt-3 max-w-2xl whitespace-pre-line text-sm leading-6 text-gray-500">
-                                      {
-                                        request.description
-                                      }
-                                    </p>
+                            <p className="text-xs font-medium uppercase text-red-700">
+                              Rejected
+                            </p>
 
-                                  )}
+                            <p className="mt-1 text-2xl font-semibold text-red-800">
+                              {
+                                selectedSummary.rejected
+                              }
+                            </p>
 
-                                  {selectedService ===
-                                    "death" && (
+                          </div>
 
-                                    <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+                        </div>
 
-                                      <p className="font-semibold text-blue-900">
-                                        Need to make changes?
-                                      </p>
+                      )}
 
-                                      <p className="mt-1 text-sm text-blue-800">
-                                        Contact LegacyCare Admin at{" "}
-                                        <strong>
+                      {/* NO REQUESTS */}
+
+                      {selectedService !==
+                        "appointment" &&
+                        selectedRequests.length ===
+                          0 && (
+
+                          <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
+
+                            <div className="text-4xl">
+                              {
+                                selectedDefinition.icon
+                              }
+                            </div>
+
+                            <h3 className="mt-4 font-semibold text-gray-900">
+                              No{" "}
+                              {
+                                selectedDefinition.title
+                              }{" "}
+                              requests yet
+                            </h3>
+
+                            <Link
+                              href={
+                                selectedDefinition.href
+                              }
+                              className="mt-5 inline-flex rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+                            >
+                              Start Request
+                            </Link>
+
+                          </div>
+
+                        )}
+
+                      {selectedService ===
+                        "appointment" &&
+                        !loadingAppointments &&
+                        appointments.length ===
+                          0 && (
+
+                          <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
+
+                            <div className="text-4xl">
+                              📅
+                            </div>
+
+                            <h3 className="mt-4 font-semibold text-gray-900">
+                              No appointments yet
+                            </h3>
+
+                            <p className="mt-2 text-sm text-gray-500">
+                              Book an appointment and it will appear here for tracking.
+                            </p>
+
+                            <Link
+                              href="/client/service-requests/booking"
+                              className="mt-5 inline-flex rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+                            >
+                              Book Appointment
+                            </Link>
+
+                          </div>
+
+                        )}
+
+                      {/* APPOINTMENT CARDS */}
+
+                      {selectedService ===
+                        "appointment" &&
+                        appointments.map(
+                          (
+                            appointment
+                          ) => {
+
+                            const linkedRequest =
+                              requests.find(
+                                (
+                                  request
+                                ) =>
+                                  request.serviceRequestId ===
+                                  appointment.serviceRequestId
+                              );
+
+                            const scheduledDateTime =
+                              appointment.confirmedDateTime ||
+                              appointment.preferredDateTime;
+
+                            return (
+
+                              <div
+                                key={
+                                  appointment.appointmentId
+                                }
+                                className="rounded-xl border border-gray-200 p-5 transition hover:border-teal-300 hover:shadow-sm"
+                              >
+
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                                  <div className="flex items-start gap-4">
+
+                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-2xl">
+                                      📅
+                                    </div>
+
+                                    <div className="min-w-0">
+
+                                      <div className="flex flex-wrap items-center gap-2">
+
+                                        <h4 className="font-semibold text-gray-900">
+                                          REQ-
+                                          {String(
+                                            appointment.serviceRequestId
+                                          ).padStart(
+                                            5,
+                                            "0"
+                                          )}
+                                        </h4>
+
+                                        <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
                                           {
-                                            LEGACYCARE_CONTACT_NUMBER
+                                            appointment.appointmentType
                                           }
-                                        </strong>
-                                        .
-                                      </p>
+                                        </span>
+
+                                      </div>
+
+                                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+
+                                        <div>
+
+                                          <p className="text-xs font-medium uppercase text-gray-500">
+                                            Branch
+                                          </p>
+
+                                          <p className="mt-1 text-sm font-medium text-gray-900">
+                                            {
+                                              getBranchNameById(
+                                                appointment.branchId
+                                              )
+                                            }
+                                          </p>
+
+                                        </div>
+
+                                        <div>
+
+                                          <p className="text-xs font-medium uppercase text-gray-500">
+                                            {
+                                              appointment.confirmedDateTime
+                                                ? "Scheduled"
+                                                : "Preferred"
+                                            }
+                                          </p>
+
+                                          <p className="mt-1 text-sm font-medium text-gray-900">
+                                            {
+                                              formatDate(
+                                                scheduledDateTime
+                                              )
+                                            }{" "}
+                                            {
+                                              formatTime(
+                                                scheduledDateTime
+                                              )
+                                            }
+                                          </p>
+
+                                        </div>
+
+                                      </div>
+
+                                      {appointment.clientNotes && (
+
+                                        <p className="mt-3 max-w-2xl whitespace-pre-line text-sm leading-6 text-gray-500">
+                                          {
+                                            appointment.clientNotes
+                                          }
+                                        </p>
+
+                                      )}
+
+                                      {linkedRequest && (
+
+                                        <div className="mt-3 flex flex-wrap gap-x-4 text-xs text-gray-400">
+
+                                          <span>
+                                            Submitted{" "}
+                                            {
+                                              formatDate(
+                                                linkedRequest.createdDate
+                                              )
+                                            }
+                                          </span>
+
+                                          <span>
+                                            {
+                                              formatTime(
+                                                linkedRequest.createdDate
+                                              )
+                                            }
+                                          </span>
+
+                                        </div>
+
+                                      )}
 
                                     </div>
 
-                                  )}
+                                  </div>
 
-                                  <div className="mt-3 flex flex-wrap gap-x-4 text-xs text-gray-400">
+                                  <div className="flex flex-wrap items-center gap-3">
 
-                                    <span>
-                                      Submitted{" "}
+                                    <span
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
+                                        appointment.status
+                                      )}`}
+                                    >
                                       {
-                                        formatDate(
-                                          request.createdDate
+                                        formatStatus(
+                                          appointment.status
                                         )
                                       }
                                     </span>
 
-                                    <span>
+                                    <span
+                                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${getPriorityStyle(
+                                        appointment.priority
+                                      )}`}
+                                    >
                                       {
-                                        formatTime(
-                                          request.createdDate
-                                        )
-                                      }
+                                        appointment.priority
+                                      }{" "}
+                                      Priority
                                     </span>
+
+                                    <Link
+                                      href={`/client/service-requests/${appointment.serviceRequestId}`}
+                                      className="rounded-lg border border-teal-600 px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50"
+                                    >
+                                      View Details
+                                    </Link>
 
                                   </div>
 
@@ -1242,44 +1913,174 @@ export default function ServiceRequestsPage() {
 
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-3">
+                            );
+                          }
+                        )}
 
-                                <span
-                                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
-                                    request.status
-                                  )}`}
-                                >
-                                  {
-                                    request.status
-                                  }
-                                </span>
+                      {/* GENERIC REQUEST CARDS */}
 
-                                <span
-                                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${getPriorityStyle(
-                                    request.priority
-                                  )}`}
-                                >
-                                  {
-                                    request.priority
-                                  }{" "}
-                                  Priority
-                                </span>
+                      {selectedService !==
+                        "appointment" &&
+                        selectedRequests.map(
+                          (
+                            request
+                          ) => (
 
-                                <Link
-                                  href={`/client/service-requests/${request.serviceRequestId}`}
-                                  className="rounded-lg border border-teal-600 px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50"
-                                >
-                                  View Details
-                                </Link>
+                            <div
+                              key={
+                                request.serviceRequestId
+                              }
+                              className="rounded-xl border border-gray-200 p-5 transition hover:border-teal-300 hover:shadow-sm"
+                            >
+
+                              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+                                <div className="flex items-start gap-4">
+
+                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-2xl">
+                                    {
+                                      getRequestIcon(
+                                        request.requestType
+                                      )
+                                    }
+                                  </div>
+
+                                  <div className="min-w-0">
+
+                                    <div className="flex flex-wrap items-center gap-2">
+
+                                      <h4 className="font-semibold text-gray-900">
+                                        REQ-
+                                        {String(
+                                          request.serviceRequestId
+                                        ).padStart(
+                                          5,
+                                          "0"
+                                        )}
+                                      </h4>
+
+                                      <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700">
+                                        {
+                                          request.requestType
+                                        }
+                                      </span>
+
+                                    </div>
+
+                                    <div className="mt-3">
+
+                                      <p className="text-xs font-medium uppercase text-gray-500">
+                                        Branch
+                                      </p>
+
+                                      <p className="mt-1 text-sm font-medium text-gray-900">
+                                        {
+                                          getBranchName(
+                                            request
+                                          )
+                                        }
+                                      </p>
+
+                                    </div>
+
+                                    {request.description && (
+
+                                      <p className="mt-3 max-w-2xl whitespace-pre-line text-sm leading-6 text-gray-500">
+                                        {
+                                          request.description
+                                        }
+                                      </p>
+
+                                    )}
+
+                                    {selectedService ===
+                                      "death" && (
+
+                                      <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+
+                                        <p className="font-semibold text-blue-900">
+                                          Need to make changes?
+                                        </p>
+
+                                        <p className="mt-1 text-sm text-blue-800">
+                                          Contact LegacyCare Admin at{" "}
+                                          <strong>
+                                            {
+                                              LEGACYCARE_CONTACT_NUMBER
+                                            }
+                                          </strong>
+                                          .
+                                        </p>
+
+                                      </div>
+
+                                    )}
+
+                                    <div className="mt-3 flex flex-wrap gap-x-4 text-xs text-gray-400">
+
+                                      <span>
+                                        Submitted{" "}
+                                        {
+                                          formatDate(
+                                            request.createdDate
+                                          )
+                                        }
+                                      </span>
+
+                                      <span>
+                                        {
+                                          formatTime(
+                                            request.createdDate
+                                          )
+                                        }
+                                      </span>
+
+                                    </div>
+
+                                  </div>
+
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-3">
+
+                                  <span
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
+                                      request.status
+                                    )}`}
+                                  >
+                                    {
+                                      formatStatus(
+                                        request.status
+                                      )
+                                    }
+                                  </span>
+
+                                  <span
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-medium ${getPriorityStyle(
+                                      request.priority
+                                    )}`}
+                                  >
+                                    {
+                                      request.priority
+                                    }{" "}
+                                    Priority
+                                  </span>
+
+                                  <Link
+                                    href={`/client/service-requests/${request.serviceRequestId}`}
+                                    className="rounded-lg border border-teal-600 px-4 py-2 text-sm font-medium text-teal-600 hover:bg-teal-50"
+                                  >
+                                    View Details
+                                  </Link>
+
+                                </div>
 
                               </div>
 
                             </div>
 
-                          </div>
-
-                        )
-                      )}
+                          )
+                        )}
 
                     </div>
 
