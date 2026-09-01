@@ -1,6 +1,4 @@
-// ============================================================================
-// FILE: Data/AppDbContext.cs
-// ============================================================================
+// File: Data/AppDbContext.cs
 
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Models;
@@ -20,15 +18,7 @@ namespace PolicyManagement.Data
         {
         }
 
-        // =====================================================
-        // SERVICE REQUEST
-        // =====================================================
-
         public DbSet<ServiceRequest> ServiceRequests { get; set; } = null!;
-
-        // =====================================================
-        // POLICY MANAGEMENT
-        // =====================================================
 
         public DbSet<Policy> Policy { get; set; } = null!;
         public DbSet<Beneficiary> Beneficiary { get; set; } = null!;
@@ -37,18 +27,10 @@ namespace PolicyManagement.Data
         public DbSet<BeneficiaryRequest> BeneficiaryRequest { get; set; } = null!;
         public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; } = null!;
 
-        // =====================================================
-        // USER MANAGEMENT
-        // =====================================================
-
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Staff> Staff { get; set; } = null!;
         public DbSet<Client> Client { get; set; } = null!;
         public DbSet<Branch> Branch { get; set; } = null!;
-
-        // =====================================================
-        // MORTUARY MANAGEMENT
-        // =====================================================
 
         public DbSet<Storage> StorageUnit { get; set; } = null!;
         public DbSet<Deceased> Deceased { get; set; } = null!;
@@ -56,29 +38,14 @@ namespace PolicyManagement.Data
         public DbSet<FuneralRequest> FuneralRequests { get; set; } = null!;
         public DbSet<FuneralStaffDeployment> FuneralStaffDeployments { get; set; } = null!;
 
-        // =====================================================
-        // DEATH NOTIFICATIONS
-        // =====================================================
-
         public DbSet<DeathNotification> DeathNotifications { get; set; } = null!;
 
-        // =====================================================
-        // TASK MANAGEMENT
-        // =====================================================
-
         public DbSet<TaskItem> Task { get; set; } = null!;
-
-        // =====================================================
-        // SCHEDULING
-        // =====================================================
 
         public DbSet<Event> Event { get; set; } = null!;
         public DbSet<BookingRestriction> BookingRestriction { get; set; } = null!;
         public DbSet<EventUser> EventUser { get; set; } = null!;
-
-        // =====================================================
-        // PAYMENT MANAGEMENT
-        // =====================================================
+        public DbSet<Appointment> Appointments { get; set; } = null!;
 
         public DbSet<Payment> Payment { get; set; } = null!;
         public DbSet<PaymentMethod> PaymentMethod { get; set; } = null!;
@@ -96,15 +63,15 @@ namespace PolicyManagement.Data
             ConfigureFuneralRequests(modelBuilder);
             ConfigureUserManagement(modelBuilder);
             ConfigureServiceRequests(modelBuilder);
+            ConfigureAppointments(modelBuilder);
             ConfigurePaymentManagement(modelBuilder);
             ConfigurePasswordSetupTokens(modelBuilder);
 
             modelBuilder.Entity<ServiceRequest>()
-    .HasOne(x => x.DeathNotification)
-    .WithMany()
-    .HasForeignKey(x => x.DeathNotificationId)
-    .OnDelete(DeleteBehavior.SetNull);
-
+                .HasOne(x => x.DeathNotification)
+                .WithMany()
+                .HasForeignKey(x => x.DeathNotificationId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         private static void ConfigurePolicyManagement(
@@ -168,10 +135,6 @@ namespace PolicyManagement.Data
         private static void ConfigureMortuaryManagement(
             ModelBuilder modelBuilder)
         {
-            // =====================================================
-            // STORAGE
-            // =====================================================
-
             modelBuilder.Entity<Storage>(entity =>
             {
                 entity.HasKey(x => x.StorageId);
@@ -205,21 +168,11 @@ namespace PolicyManagement.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // =====================================================
-            // DECEASED
-            // =====================================================
-
             modelBuilder.Entity<Deceased>()
                 .HasOne(x => x.Beneficiary)
                 .WithMany()
                 .HasForeignKey(x => x.BeneficiaryId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-                
-
-            // =====================================================
-            // DECEASED STORAGE
-            // =====================================================
 
             modelBuilder.Entity<DeceasedStorage>(entity =>
             {
@@ -248,10 +201,6 @@ namespace PolicyManagement.Data
 
                 entity.HasIndex(x => x.StorageId);
 
-                /*
-                 * A storage unit may only have one active
-                 * deceased assignment at a time.
-                 */
                 entity.HasIndex(x => x.StorageId)
                     .IsUnique()
                     .HasFilter("[DateRemoved] IS NULL");
@@ -313,10 +262,6 @@ namespace PolicyManagement.Data
                 entity.Property(x => x.RejectionReason)
                     .HasMaxLength(1000);
 
-                // =================================================
-                // INDEXES
-                // =================================================
-
                 entity.HasIndex(x => x.RequestNumber)
                     .IsUnique()
                     .HasFilter("[RequestNumber] IS NOT NULL");
@@ -327,55 +272,31 @@ namespace PolicyManagement.Data
 
                 entity.HasIndex(x => x.StorageId);
 
-                // =================================================
-                // POLICY
-                // =================================================
-
                 entity.HasOne(x => x.Policy)
                     .WithMany()
                     .HasForeignKey(x => x.PolicyId)
                     .OnDelete(DeleteBehavior.Restrict);
-
-                // =================================================
-                // BENEFICIARY
-                // =================================================
 
                 entity.HasOne(x => x.Beneficiary)
                     .WithMany()
                     .HasForeignKey(x => x.BeneficiaryId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // =================================================
-                // REPORTED BY
-                // =================================================
-
                 entity.HasOne(x => x.ReportedByUser)
                     .WithMany()
                     .HasForeignKey(x => x.ReportedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
-
-                // =================================================
-                // VERIFIED BY
-                // =================================================
 
                 entity.HasOne(x => x.VerifiedBy)
                     .WithMany()
                     .HasForeignKey(x => x.VerifiedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // =================================================
-                // BRANCH
-                // =================================================
-
                 entity.HasOne(x => x.Branch)
                     .WithMany(b => b.DeathNotifications)
                     .HasForeignKey(x => x.BranchId)
                     .HasPrincipalKey(b => b.BranchId)
                     .OnDelete(DeleteBehavior.Restrict);
-
-                // =================================================
-                // RESERVED STORAGE
-                // =================================================
 
                 entity.HasOne(x => x.Storage)
                     .WithMany()
@@ -464,6 +385,82 @@ namespace PolicyManagement.Data
             modelBuilder.Entity<ServiceRequest>()
                 .Property(x => x.AdditionalFee)
                 .HasPrecision(18, 2);
+        }
+
+        private static void ConfigureAppointments(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Appointment>(entity =>
+            {
+                entity.HasKey(x => x.AppointmentId);
+
+                entity.Property(x => x.AppointmentType)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.Status)
+                    .HasMaxLength(30)
+                    .IsRequired();
+
+                entity.Property(x => x.Priority)
+                    .HasMaxLength(20)
+                    .IsRequired();
+
+                entity.Property(x => x.ClientNotes)
+                    .HasMaxLength(2000);
+
+                entity.Property(x => x.ClerkNotes)
+                    .HasMaxLength(2000);
+
+                entity.Property(x => x.RescheduleReason)
+                    .HasMaxLength(1000);
+
+                entity.Property(x => x.CancellationReason)
+                    .HasMaxLength(1000);
+
+                entity.HasIndex(x => x.ServiceRequestId)
+                    .IsUnique();
+
+                entity.HasIndex(x => x.ClientId);
+
+                entity.HasIndex(x => x.BranchId);
+
+                entity.HasIndex(x => x.Status);
+
+                entity.HasIndex(x => x.PreferredDateTime);
+
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.BranchId,
+                        x.Status,
+                        x.PreferredDateTime
+                    });
+
+                entity.HasOne(x => x.ServiceRequest)
+                    .WithOne()
+                    .HasForeignKey<Appointment>(
+                        x => x.ServiceRequestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(x => x.Client)
+                    .WithMany()
+                    .HasForeignKey(x => x.ClientId)
+                    .HasPrincipalKey(x => x.ClientId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(x => x.Branch)
+                    .WithMany()
+                    .HasForeignKey(x => x.BranchId)
+                    .HasPrincipalKey(x => x.BranchId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(x => x.AssignedStaff)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssignedStaffId)
+                    .HasPrincipalKey(x => x.StaffId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
         private static void ConfigurePaymentManagement(

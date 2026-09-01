@@ -1,4 +1,4 @@
-// app/(dashboard)/client/service-requests/[id]/page.tsx
+// File: app/(dashboard)/client/service-requests/[id]/page.tsx
 
 "use client";
 
@@ -22,7 +22,6 @@ type Branch = {
 
 type DeathNotification = {
   deathNotificationId: string;
-
   requestNumber?: string | null;
 
   policyId?: string | null;
@@ -92,13 +91,10 @@ type DeathNotification = {
 
 type ServiceRequest = {
   serviceRequestId: number;
-
   clientId: string | number;
 
   requestType: string;
-
   status: string;
-
   priority: string;
 
   description?: string | null;
@@ -106,20 +102,64 @@ type ServiceRequest = {
   branchId?: string | null;
 
   deathNotificationId?: string | null;
-
   deathNotification?: DeathNotification | null;
 
-  assignedStaffId?: number | null;
+  assignedStaffId?: string | number | null;
 
   createdDate: string;
-
   updatedDate?: string | null;
-
   dueDate?: string | null;
 
   appointmentDateTime?: string | null;
 
   additionalFee?: number | null;
+};
+
+type AppointmentDetails = {
+  appointmentId: number;
+  serviceRequestId: number;
+
+  clientId: string;
+  branchId: string;
+
+  appointmentType: string;
+
+  preferredDateTime: string;
+  confirmedDateTime?: string | null;
+
+  status: string;
+  priority: string;
+
+  clientNotes?: string | null;
+  clerkNotes?: string | null;
+
+  assignedStaffId?: string | null;
+
+  rescheduleReason?: string | null;
+  cancellationReason?: string | null;
+
+  createdDate: string;
+  updatedDate: string;
+
+  confirmedDate?: string | null;
+  completedDate?: string | null;
+  cancelledDate?: string | null;
+
+  assignedStaff?: {
+    staffId?: string | null;
+    staffRole?: string | null;
+
+    user?: {
+      userId?: string | null;
+      fullName?: string | null;
+      email?: string | null;
+    } | null;
+  } | null;
+
+  branch?: {
+    branchId?: string | null;
+    branchName?: string | null;
+  } | null;
 };
 
 type DetailItemProps = {
@@ -135,9 +175,10 @@ type DetailItemProps = {
 function getRequestIcon(
   requestType: string
 ) {
-  const type = (
-    requestType || ""
-  ).toLowerCase();
+  const type =
+    (requestType || "")
+      .trim()
+      .toLowerCase();
 
   if (type.includes("appointment")) {
     return "📅";
@@ -182,15 +223,21 @@ function getStatusStyle(
   status: string
 ) {
   switch (
-    (
-      status || ""
-    ).toLowerCase()
+    (status || "")
+      .trim()
+      .toLowerCase()
   ) {
+    case "requested":
     case "pending":
       return "bg-amber-100 text-amber-700 border-amber-200";
 
+    case "confirmed":
     case "approved":
       return "bg-green-100 text-green-700 border-green-200";
+
+    case "rescheduled":
+    case "in progress":
+      return "bg-purple-100 text-purple-700 border-purple-200";
 
     case "completed":
       return "bg-blue-100 text-blue-700 border-blue-200";
@@ -201,12 +248,32 @@ function getStatusStyle(
     case "cancelled":
       return "bg-gray-100 text-gray-600 border-gray-200";
 
-    case "in progress":
-      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "noshow":
+    case "no show":
+      return "bg-orange-100 text-orange-700 border-orange-200";
 
     default:
       return "bg-gray-100 text-gray-700 border-gray-200";
   }
+}
+
+function formatStatus(
+  status?: string | null
+) {
+  if (!status) {
+    return "Not available";
+  }
+
+  if (
+    status
+      .trim()
+      .toLowerCase() ===
+    "noshow"
+  ) {
+    return "No Show";
+  }
+
+  return status;
 }
 
 function formatDate(
@@ -310,11 +377,10 @@ function valueOrNotAvailable(
 function isAppointmentRequest(
   requestType: string
 ) {
-  const type = (
-    requestType || ""
-  )
-    .trim()
-    .toLowerCase();
+  const type =
+    (requestType || "")
+      .trim()
+      .toLowerCase();
 
   return (
     type === "appointment" ||
@@ -325,11 +391,10 @@ function isAppointmentRequest(
 function isFuneralRequest(
   requestType: string
 ) {
-  const type = (
-    requestType || ""
-  )
-    .trim()
-    .toLowerCase();
+  const type =
+    (requestType || "")
+      .trim()
+      .toLowerCase();
 
   return (
     type === "funeral" ||
@@ -351,7 +416,8 @@ function isDeathRequest(
 }
 
 function canEditAppointment(
-  request: ServiceRequest
+  request: ServiceRequest,
+  appointment?: AppointmentDetails | null
 ) {
   if (
     !isAppointmentRequest(
@@ -361,32 +427,41 @@ function canEditAppointment(
     return false;
   }
 
-  if (
-    !request.appointmentDateTime
-  ) {
-    return false;
-  }
-
-  const status = (
-    request.status || ""
-  ).toLowerCase();
+  const status =
+    (
+      appointment?.status ||
+      request.status ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
 
   if (
     status === "completed" ||
-    status === "rejected" ||
-    status === "cancelled"
+    status === "cancelled" ||
+    status === "noshow" ||
+    status === "no show"
   ) {
     return false;
   }
 
-  const appointmentTime =
+  const scheduledDateTime =
+    appointment?.confirmedDateTime ||
+    appointment?.preferredDateTime ||
+    request.appointmentDateTime;
+
+  if (!scheduledDateTime) {
+    return false;
+  }
+
+  const scheduledTime =
     new Date(
-      request.appointmentDateTime
+      scheduledDateTime
     ).getTime();
 
   if (
     Number.isNaN(
-      appointmentTime
+      scheduledTime
     )
   ) {
     return false;
@@ -394,7 +469,7 @@ function canEditAppointment(
 
   const hoursRemaining =
     (
-      appointmentTime -
+      scheduledTime -
       Date.now()
     ) /
     (
@@ -403,9 +478,7 @@ function canEditAppointment(
       60
     );
 
-  return (
-    hoursRemaining >= 24
-  );
+  return hoursRemaining > 24;
 }
 
 function canEditFuneral(
@@ -425,9 +498,10 @@ function canEditFuneral(
     return false;
   }
 
-  const status = (
-    request.status || ""
-  ).toLowerCase();
+  const status =
+    (request.status || "")
+      .trim()
+      .toLowerCase();
 
   if (
     status === "completed" ||
@@ -461,9 +535,7 @@ function canEditFuneral(
       60
     );
 
-  return (
-    hoursRemaining >= 24
-  );
+  return hoursRemaining > 24;
 }
 
 function DetailItem({
@@ -497,8 +569,13 @@ export default function ServiceRequestDetailsPage() {
   const params =
     useParams();
 
-  const id =
+  const rawId =
     params?.id;
+
+  const id =
+    Array.isArray(rawId)
+      ? rawId[0]
+      : rawId;
 
   const [
     request,
@@ -506,6 +583,14 @@ export default function ServiceRequestDetailsPage() {
   ] =
     useState<
       ServiceRequest | null
+    >(null);
+
+  const [
+    appointment,
+    setAppointment,
+  ] =
+    useState<
+      AppointmentDetails | null
     >(null);
 
   const [
@@ -527,6 +612,12 @@ export default function ServiceRequestDetailsPage() {
     useState(true);
 
   const [
+    loadingAppointment,
+    setLoadingAppointment,
+  ] =
+    useState(false);
+
+  const [
     openingDocument,
     setOpeningDocument,
   ] =
@@ -539,14 +630,16 @@ export default function ServiceRequestDetailsPage() {
     useState("");
 
   const [
+    appointmentError,
+    setAppointmentError,
+  ] =
+    useState("");
+
+  const [
     documentError,
     setDocumentError,
   ] =
     useState("");
-
-  // ============================================================
-  // LOAD BRANCHES
-  // ============================================================
 
   useEffect(() => {
     const loadBranches =
@@ -589,9 +682,7 @@ export default function ServiceRequestDetailsPage() {
                 () => null
               );
 
-          if (
-            !response.ok
-          ) {
+          if (!response.ok) {
             throw new Error(
               data?.message ||
                 `Unable to load branches (${response.status}).`
@@ -599,9 +690,7 @@ export default function ServiceRequestDetailsPage() {
           }
 
           setBranches(
-            Array.isArray(
-              data
-            )
+            Array.isArray(data)
               ? data
               : []
           );
@@ -621,10 +710,6 @@ export default function ServiceRequestDetailsPage() {
 
     void loadBranches();
   }, []);
-
-  // ============================================================
-  // LOAD REQUEST
-  // ============================================================
 
   useEffect(() => {
     const loadRequest =
@@ -678,19 +763,12 @@ export default function ServiceRequestDetailsPage() {
                 () => null
               );
 
-          if (
-            !response.ok
-          ) {
+          if (!response.ok) {
             throw new Error(
               data?.message ||
                 `Unable to load service request (${response.status}).`
             );
           }
-
-          console.log(
-            "[ServiceRequestDetails] Response:",
-            data
-          );
 
           setRequest(
             data as ServiceRequest
@@ -714,9 +792,96 @@ export default function ServiceRequestDetailsPage() {
     void loadRequest();
   }, [id]);
 
-  // ============================================================
-  // BRANCH LOOKUP
-  // ============================================================
+  useEffect(() => {
+    if (
+      !request ||
+      !isAppointmentRequest(
+        request.requestType
+      )
+    ) {
+      setAppointment(null);
+      setAppointmentError("");
+      setLoadingAppointment(false);
+
+      return;
+    }
+
+    const loadAppointment =
+      async () => {
+        try {
+          setLoadingAppointment(
+            true
+          );
+
+          setAppointmentError("");
+
+          const token =
+            getToken();
+
+          if (!token) {
+            setAppointmentError(
+              "You are not logged in."
+            );
+
+            return;
+          }
+
+          const response =
+            await fetch(
+              `${API_URL}/Appointment/my/by-service-request/${request.serviceRequestId}`,
+              {
+                method: "GET",
+
+                headers: {
+                  Accept:
+                    "application/json",
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await response
+              .json()
+              .catch(
+                () => null
+              );
+
+          if (!response.ok) {
+            throw new Error(
+              data?.message ||
+                `Unable to load appointment (${response.status}).`
+            );
+          }
+
+          setAppointment(
+            data as AppointmentDetails
+          );
+        } catch (err) {
+          console.error(
+            "[ServiceRequestDetails] Appointment error:",
+            err
+          );
+
+          setAppointmentError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load appointment details."
+          );
+        } finally {
+          setLoadingAppointment(
+            false
+          );
+        }
+      };
+
+    void loadAppointment();
+  }, [request]);
 
   const getBranchDetails =
     (
@@ -727,9 +892,7 @@ export default function ServiceRequestDetailsPage() {
       }
 
       const normalizedId =
-        String(
-          branchId
-        )
+        String(branchId)
           .trim()
           .toLowerCase();
 
@@ -746,18 +909,12 @@ export default function ServiceRequestDetailsPage() {
       );
     };
 
-  // ============================================================
-  // VIEW PROOF OF DEATH
-  // ============================================================
-
   const handleViewDocument =
     async () => {
       const deathNotification =
         request?.deathNotification;
 
-      if (
-        !deathNotification
-      ) {
+      if (!deathNotification) {
         setDocumentError(
           "Death notification details are unavailable."
         );
@@ -808,7 +965,6 @@ export default function ServiceRequestDetailsPage() {
             <head>
               <title>Loading document...</title>
             </head>
-
             <body
               style="
                 font-family: Arial, sans-serif;
@@ -817,13 +973,8 @@ export default function ServiceRequestDetailsPage() {
                 text-align: center;
               "
             >
-              <h2>
-                Loading Proof of Death
-              </h2>
-
-              <p>
-                Please wait...
-              </p>
+              <h2>Loading Proof of Death</h2>
+              <p>Please wait...</p>
             </body>
           </html>
         `);
@@ -860,9 +1011,7 @@ export default function ServiceRequestDetailsPage() {
         const blob =
           await response.blob();
 
-        if (
-          blob.size === 0
-        ) {
+        if (blob.size === 0) {
           throw new Error(
             "The returned document is empty."
           );
@@ -904,27 +1053,17 @@ export default function ServiceRequestDetailsPage() {
       }
     };
 
-  // ============================================================
-  // LOADING
-  // ============================================================
-
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl">
         <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-
           <div className="h-8 w-64 rounded bg-gray-200" />
 
           <div className="mt-6 h-48 rounded-xl bg-gray-200" />
-
         </div>
       </div>
     );
   }
-
-  // ============================================================
-  // ERROR
-  // ============================================================
 
   if (
     error ||
@@ -932,7 +1071,6 @@ export default function ServiceRequestDetailsPage() {
   ) {
     return (
       <div className="mx-auto max-w-5xl space-y-5">
-
         <button
           type="button"
           onClick={() =>
@@ -949,7 +1087,6 @@ export default function ServiceRequestDetailsPage() {
           {error ||
             "Request not found."}
         </div>
-
       </div>
     );
   }
@@ -962,15 +1099,16 @@ export default function ServiceRequestDetailsPage() {
   const deathNotification =
     request.deathNotification;
 
-  // ============================================================
-  // PAGE
-  // ============================================================
+  const effectiveStatus =
+    isAppointmentRequest(
+      request.requestType
+    ) &&
+    appointment
+      ? appointment.status
+      : request.status;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-
-      {/* BACK */}
-
       <button
         type="button"
         onClick={() =>
@@ -983,14 +1121,9 @@ export default function ServiceRequestDetailsPage() {
         ← Back to Service Requests
       </button>
 
-      {/* HEADER */}
-
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-
           <div className="flex items-center gap-4">
-
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-teal-50 text-3xl">
               {getRequestIcon(
                 request.requestType
@@ -1016,27 +1149,22 @@ export default function ServiceRequestDetailsPage() {
                 {request.requestType}
               </p>
             </div>
-
           </div>
 
           <span
             className={`inline-flex w-fit rounded-full border px-4 py-2 text-sm font-semibold ${getStatusStyle(
-              request.status
+              effectiveStatus
             )}`}
           >
-            {request.status}
+            {formatStatus(
+              effectiveStatus
+            )}
           </span>
-
         </div>
-
       </div>
 
-      {/* REQUEST INFORMATION */}
-
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
         <div className="border-b border-gray-200 p-6">
-
           <h2 className="text-lg font-semibold text-gray-900">
             Request Information
           </h2>
@@ -1044,11 +1172,9 @@ export default function ServiceRequestDetailsPage() {
           <p className="mt-1 text-sm text-gray-500">
             General information about this service request.
           </p>
-
         </div>
 
         <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
           <DetailItem
             label="Request Type"
             value={
@@ -1059,13 +1185,16 @@ export default function ServiceRequestDetailsPage() {
           <DetailItem
             label="Status"
             value={
-              request.status
+              formatStatus(
+                effectiveStatus
+              )
             }
           />
 
           <DetailItem
             label="Priority"
             value={
+              appointment?.priority ||
               request.priority
             }
           />
@@ -1073,11 +1202,14 @@ export default function ServiceRequestDetailsPage() {
           <DetailItem
             label="Branch"
             value={
+              appointment?.branch
+                ?.branchName ||
               branch?.branchName ||
               (
                 loadingBranches
                   ? "Loading..."
-                  : request.branchId
+                  : appointment?.branchId ||
+                    request.branchId
               )
             }
           />
@@ -1086,6 +1218,7 @@ export default function ServiceRequestDetailsPage() {
             label="Submitted"
             value={
               formatDateTime(
+                appointment?.createdDate ||
                 request.createdDate
               )
             }
@@ -1095,75 +1228,418 @@ export default function ServiceRequestDetailsPage() {
             label="Last Updated"
             value={
               formatDateTime(
+                appointment?.updatedDate ||
                 request.updatedDate
               )
             }
           />
 
-          {request.dueDate && (
-            <DetailItem
-              label="Due Date"
-              value={
-                formatDateTime(
-                  request.dueDate
-                )
-              }
-            />
-          )}
+          {request.dueDate &&
+            !isAppointmentRequest(
+              request.requestType
+            ) && (
+              <DetailItem
+                label="Due Date"
+                value={
+                  formatDateTime(
+                    request.dueDate
+                  )
+                }
+              />
+            )}
 
-          {request.assignedStaffId && (
-            <DetailItem
-              label="Assigned Staff"
-              value={
-                `Staff ${request.assignedStaffId}`
-              }
-            />
-          )}
-
+          {request.additionalFee !==
+            null &&
+            request.additionalFee !==
+              undefined &&
+            request.additionalFee >
+              0 && (
+              <DetailItem
+                label="Additional Fee"
+                value={`R${request.additionalFee.toFixed(
+                  2
+                )}`}
+              />
+            )}
         </div>
-
       </div>
 
-      {/* DESCRIPTION */}
-
-      {request.description && (
-
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
-          <div className="border-b border-gray-200 p-6">
-
-            <h2 className="text-lg font-semibold text-gray-900">
-              Request Description
-            </h2>
-
-          </div>
-
-          <div className="p-6">
-
-            <div className="whitespace-pre-line rounded-xl bg-gray-50 p-5 text-sm leading-7 text-gray-700">
-              {request.description}
+      {!isAppointmentRequest(
+        request.requestType
+      ) &&
+        request.description && (
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Request Description
+              </h2>
             </div>
 
+            <div className="p-6">
+              <div className="whitespace-pre-line rounded-xl bg-gray-50 p-5 text-sm leading-7 text-gray-700">
+                {request.description}
+              </div>
+            </div>
           </div>
+        )}
 
+      {isAppointmentRequest(
+        request.requestType
+      ) && (
+        <div className="space-y-6">
+          {loadingAppointment && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="animate-pulse space-y-4">
+                <div className="h-6 w-48 rounded bg-gray-200" />
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="h-16 rounded-xl bg-gray-200" />
+                  <div className="h-16 rounded-xl bg-gray-200" />
+                  <div className="h-16 rounded-xl bg-gray-200" />
+                  <div className="h-16 rounded-xl bg-gray-200" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!loadingAppointment &&
+            appointmentError && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <p className="font-semibold text-amber-900">
+                  Appointment details unavailable
+                </p>
+
+                <p className="mt-1 text-sm text-amber-800">
+                  {appointmentError}
+                </p>
+              </div>
+            )}
+
+          {!loadingAppointment &&
+            appointment && (
+              <>
+                <div className="overflow-hidden rounded-2xl border border-teal-200 bg-white shadow-sm">
+                  <div className="border-b border-teal-100 bg-teal-50 p-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-teal-900">
+                          Appointment Details
+                        </h2>
+
+                        <p className="mt-1 text-sm text-teal-700">
+                          Current appointment information from LegacyCare.
+                        </p>
+                      </div>
+
+                      <span
+                        className={`inline-flex w-fit rounded-full border px-4 py-2 text-sm font-semibold ${getStatusStyle(
+                          appointment.status
+                        )}`}
+                      >
+                        {formatStatus(
+                          appointment.status
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <DetailItem
+                      label="Appointment Type"
+                      value={
+                        appointment.appointmentType
+                      }
+                    />
+
+                    <DetailItem
+                      label="Status"
+                      value={
+                        formatStatus(
+                          appointment.status
+                        )
+                      }
+                    />
+
+                    <DetailItem
+                      label="Priority"
+                      value={
+                        appointment.priority
+                      }
+                    />
+
+                    <DetailItem
+                      label="Preferred Date"
+                      value={
+                        formatDate(
+                          appointment.preferredDateTime
+                        )
+                      }
+                    />
+
+                    <DetailItem
+                      label="Preferred Time"
+                      value={
+                        formatTime(
+                          appointment.preferredDateTime
+                        )
+                      }
+                    />
+
+                    <DetailItem
+                      label="Branch"
+                      value={
+                        appointment.branch
+                          ?.branchName ||
+                        branch
+                          ?.branchName ||
+                        appointment.branchId
+                      }
+                    />
+
+                    {appointment.confirmedDateTime && (
+                      <>
+                        <DetailItem
+                          label={
+                            appointment.status
+                              .toLowerCase() ===
+                            "rescheduled"
+                              ? "Rescheduled Date"
+                              : "Confirmed Date"
+                          }
+                          value={
+                            formatDate(
+                              appointment.confirmedDateTime
+                            )
+                          }
+                        />
+
+                        <DetailItem
+                          label={
+                            appointment.status
+                              .toLowerCase() ===
+                            "rescheduled"
+                              ? "Rescheduled Time"
+                              : "Confirmed Time"
+                          }
+                          value={
+                            formatTime(
+                              appointment.confirmedDateTime
+                            )
+                          }
+                        />
+                      </>
+                    )}
+
+                    <DetailItem
+                      label="Assigned Staff"
+                      value={
+                        appointment
+                          .assignedStaff
+                          ?.user
+                          ?.fullName ||
+                        appointment.assignedStaffId ||
+                        "Not assigned yet"
+                      }
+                    />
+
+                    {appointment
+                      .assignedStaff
+                      ?.staffRole && (
+                      <DetailItem
+                        label="Staff Role"
+                        value={
+                          appointment
+                            .assignedStaff
+                            .staffRole
+                        }
+                      />
+                    )}
+
+                    <DetailItem
+                      label="Submitted"
+                      value={
+                        formatDateTime(
+                          appointment.createdDate
+                        )
+                      }
+                    />
+
+                    <DetailItem
+                      label="Last Updated"
+                      value={
+                        formatDateTime(
+                          appointment.updatedDate
+                        )
+                      }
+                    />
+
+                    {appointment.confirmedDate && (
+                      <DetailItem
+                        label="Confirmed On"
+                        value={
+                          formatDateTime(
+                            appointment.confirmedDate
+                          )
+                        }
+                      />
+                    )}
+
+                    {appointment.completedDate && (
+                      <DetailItem
+                        label="Completed On"
+                        value={
+                          formatDateTime(
+                            appointment.completedDate
+                          )
+                        }
+                      />
+                    )}
+
+                    {appointment.cancelledDate && (
+                      <DetailItem
+                        label="Cancelled On"
+                        value={
+                          formatDateTime(
+                            appointment.cancelledDate
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {appointment.clientNotes && (
+                  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                    <div className="border-b border-gray-200 p-6">
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Your Notes
+                      </h2>
+                    </div>
+
+                    <div className="p-6">
+                      <div className="whitespace-pre-line rounded-xl bg-gray-50 p-5 text-sm leading-7 text-gray-700">
+                        {appointment.clientNotes}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {(appointment.clerkNotes ||
+                  appointment.rescheduleReason ||
+                  appointment.cancellationReason) && (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+                    <h2 className="font-semibold text-blue-900">
+                      LegacyCare Update
+                    </h2>
+
+                    {appointment.clerkNotes && (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                          Clerk Notes
+                        </p>
+
+                        <p className="mt-1 whitespace-pre-line text-sm leading-6 text-blue-900">
+                          {appointment.clerkNotes}
+                        </p>
+                      </div>
+                    )}
+
+                    {appointment.rescheduleReason && (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                          Reschedule Reason
+                        </p>
+
+                        <p className="mt-1 whitespace-pre-line text-sm leading-6 text-blue-900">
+                          {appointment.rescheduleReason}
+                        </p>
+                      </div>
+                    )}
+
+                    {appointment.cancellationReason && (
+                      <div className="mt-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+                          Cancellation Reason
+                        </p>
+
+                        <p className="mt-1 whitespace-pre-line text-sm leading-6 text-blue-900">
+                          {appointment.cancellationReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div
+                  className={`rounded-2xl border p-5 ${
+                    canEditAppointment(
+                      request,
+                      appointment
+                    )
+                      ? "border-teal-200 bg-teal-50"
+                      : "border-gray-200 bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">
+                      {canEditAppointment(
+                        request,
+                        appointment
+                      )
+                        ? "✏️"
+                        : "🔒"}
+                    </div>
+
+                    <div>
+                      <h2
+                        className={`font-semibold ${
+                          canEditAppointment(
+                            request,
+                            appointment
+                          )
+                            ? "text-teal-900"
+                            : "text-gray-800"
+                        }`}
+                      >
+                        {canEditAppointment(
+                          request,
+                          appointment
+                        )
+                          ? "Appointment can be edited"
+                          : "Appointment editing unavailable"}
+                      </h2>
+
+                      <p
+                        className={`mt-1 text-sm leading-6 ${
+                          canEditAppointment(
+                            request,
+                            appointment
+                          )
+                            ? "text-teal-800"
+                            : "text-gray-600"
+                        }`}
+                      >
+                        {canEditAppointment(
+                          request,
+                          appointment
+                        )
+                          ? "You may change this appointment while more than 24 hours remain. Changing the preferred date or branch sends it back to LegacyCare for confirmation."
+                          : "Editing is unavailable because the appointment is closed or 24 hours or less remain before the scheduled time."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
         </div>
-
       )}
-
-      {/* ========================================================
-          DEATH NOTIFICATION
-      ======================================================== */}
 
       {isDeathRequest(
         request.requestType
       ) && (
-
         <div className="space-y-6">
-
           {!request.deathNotificationId && (
-
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-
               <p className="font-semibold text-amber-900">
                 Death notification details unavailable
               </p>
@@ -1171,33 +1647,22 @@ export default function ServiceRequestDetailsPage() {
               <p className="mt-1 text-sm text-amber-800">
                 This service request is not linked to a death notification.
               </p>
-
             </div>
-
           )}
 
           {request.deathNotificationId &&
             !deathNotification && (
-
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-
                 <p className="font-semibold text-amber-900">
                   Linked death notification could not be loaded
                 </p>
-
               </div>
-
             )}
 
           {deathNotification && (
             <>
-
-              {/* SUBMITTED DETAILS */}
-
               <div className="overflow-hidden rounded-2xl border border-teal-200 bg-white shadow-sm">
-
                 <div className="border-b border-teal-100 bg-teal-50 p-6">
-
                   <h2 className="text-lg font-semibold text-teal-900">
                     Death Notification Submitted
                   </h2>
@@ -1205,11 +1670,9 @@ export default function ServiceRequestDetailsPage() {
                   <p className="mt-1 text-sm text-teal-700">
                     Information you submitted to LegacyCare.
                   </p>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Death Request Number"
                     value={
@@ -1229,16 +1692,14 @@ export default function ServiceRequestDetailsPage() {
                   <DetailItem
                     label="Beneficiary ID"
                     value={
-                      deathNotification
-                        .beneficiaryId
+                      deathNotification.beneficiaryId
                     }
                   />
 
                   <DetailItem
                     label="Policy Number"
                     value={
-                      deathNotification
-                        .policyId
+                      deathNotification.policyId
                     }
                   />
 
@@ -1246,8 +1707,7 @@ export default function ServiceRequestDetailsPage() {
                     label="Date of Death"
                     value={
                       formatDate(
-                        deathNotification
-                          .dateOfDeath
+                        deathNotification.dateOfDeath
                       )
                     }
                   />
@@ -1256,8 +1716,7 @@ export default function ServiceRequestDetailsPage() {
                     label="Date Reported"
                     value={
                       formatDateTime(
-                        deathNotification
-                          .dateReported
+                        deathNotification.dateReported
                       )
                     }
                   />
@@ -1265,45 +1724,34 @@ export default function ServiceRequestDetailsPage() {
                   <DetailItem
                     label="Relationship to Deceased"
                     value={
-                      deathNotification
-                        .relationshipToDeceased
+                      deathNotification.relationshipToDeceased
                     }
                   />
 
                   <DetailItem
                     label="Contact Person"
                     value={
-                      deathNotification
-                        .contactPerson
+                      deathNotification.contactPerson
                     }
                   />
 
                   <DetailItem
                     label="Contact Number"
                     value={
-                      deathNotification
-                        .contactNumber
+                      deathNotification.contactNumber
                     }
                   />
-
                 </div>
-
               </div>
 
-              {/* BENEFICIARY */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     Beneficiary Information
                   </h2>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Full Name"
                     value={
@@ -1359,33 +1807,24 @@ export default function ServiceRequestDetailsPage() {
                         ?.relationship
                     }
                   />
-
                 </div>
-
               </div>
 
-              {/* POLICY */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     Policy Information
                   </h2>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Policy Number"
                     value={
                       deathNotification
                         .policy
                         ?.policyId ||
-                      deathNotification
-                        .policyId
+                      deathNotification.policyId
                     }
                   />
 
@@ -1412,7 +1851,6 @@ export default function ServiceRequestDetailsPage() {
                   {deathNotification
                     .policy
                     ?.endDate && (
-
                     <DetailItem
                       label="Policy End Date"
                       value={
@@ -1423,19 +1861,12 @@ export default function ServiceRequestDetailsPage() {
                         )
                       }
                     />
-
                   )}
-
                 </div>
-
               </div>
 
-              {/* BODY LOCATION */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     Body Location
                   </h2>
@@ -1443,51 +1874,43 @@ export default function ServiceRequestDetailsPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     Location information and LegacyCare collection details.
                   </p>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Location Type"
                     value={
-                      deathNotification
-                        .bodyLocationType
+                      deathNotification.bodyLocationType
                     }
                   />
 
                   <DetailItem
                     label="Location / Address"
                     value={
-                      deathNotification
-                        .bodyLocationAddress
+                      deathNotification.bodyLocationAddress
                     }
                   />
 
                   <DetailItem
                     label="Mortuary"
                     value={
-                      deathNotification
-                        .mortuaryName
+                      deathNotification.mortuaryName
                     }
                   />
 
                   <DetailItem
                     label="Storage Unit"
                     value={
-                      deathNotification
-                        .storageUnitNumber
+                      deathNotification.storageUnitNumber
                     }
                   />
 
                   <DetailItem
                     label="Collection Date"
                     value={
-                      deathNotification
-                        .collectionDate
+                      deathNotification.collectionDate
                         ? formatDateTime(
-                            deathNotification
-                              .collectionDate
+                            deathNotification.collectionDate
                           )
                         : "Not collected yet"
                     }
@@ -1496,29 +1919,20 @@ export default function ServiceRequestDetailsPage() {
                   <DetailItem
                     label="Collection Notes"
                     value={
-                      deathNotification
-                        .collectionNotes
+                      deathNotification.collectionNotes
                     }
                   />
-
                 </div>
-
               </div>
 
-              {/* BRANCH */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     LegacyCare Branch
                   </h2>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Branch"
                     value={
@@ -1534,8 +1948,7 @@ export default function ServiceRequestDetailsPage() {
                       deathNotification
                         .branch
                         ?.branchId ||
-                      deathNotification
-                        .branchId
+                      deathNotification.branchId
                     }
                   />
 
@@ -1565,17 +1978,11 @@ export default function ServiceRequestDetailsPage() {
                         ?.email
                     }
                   />
-
                 </div>
-
               </div>
 
-              {/* DOCUMENT */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     Proof of Death
                   </h2>
@@ -1583,42 +1990,33 @@ export default function ServiceRequestDetailsPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     The document submitted with this death notification.
                   </p>
-
                 </div>
 
                 <div className="p-6">
-
                   <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-
                     <div className="flex min-w-0 items-center gap-4">
-
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-2xl shadow-sm">
                         📄
                       </div>
 
                       <div className="min-w-0">
-
                         <p className="truncate font-semibold text-gray-900">
                           {valueOrNotAvailable(
-                            deathNotification
-                              .documentFileName
+                            deathNotification.documentFileName
                           )}
                         </p>
 
                         <p className="mt-1 text-sm text-gray-500">
                           Submitted proof-of-death document
                         </p>
-
                       </div>
-
                     </div>
 
                     <button
                       type="button"
                       disabled={
                         openingDocument ||
-                        !deathNotification
-                          .deathNotificationId
+                        !deathNotification.deathNotificationId
                       }
                       onClick={() =>
                         void handleViewDocument()
@@ -1629,40 +2027,28 @@ export default function ServiceRequestDetailsPage() {
                         ? "Opening..."
                         : "👁 View Document"}
                     </button>
-
                   </div>
 
                   {documentError && (
-
                     <p className="mt-3 text-sm font-medium text-red-600">
                       {documentError}
                     </p>
-
                   )}
-
                 </div>
-
               </div>
 
-              {/* REVIEW */}
-
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
                 <div className="border-b border-gray-200 p-6">
-
                   <h2 className="text-lg font-semibold text-gray-900">
                     Review Status
                   </h2>
-
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 lg:grid-cols-3">
-
                   <DetailItem
                     label="Notification Status"
                     value={
-                      deathNotification
-                        .status
+                      deathNotification.status
                     }
                   />
 
@@ -1679,59 +2065,41 @@ export default function ServiceRequestDetailsPage() {
                   <DetailItem
                     label="Date Verified"
                     value={
-                      deathNotification
-                        .dateVerified
+                      deathNotification.dateVerified
                         ? formatDateTime(
-                            deathNotification
-                              .dateVerified
+                            deathNotification.dateVerified
                           )
                         : "Not verified yet"
                     }
                   />
 
-                  {deathNotification
-                    .rejectionReason && (
-
+                  {deathNotification.rejectionReason && (
                     <DetailItem
                       label="Rejection Reason"
                       value={
-                        deathNotification
-                          .rejectionReason
+                        deathNotification.rejectionReason
                       }
                     />
-
                   )}
-
                 </div>
-
               </div>
-
             </>
           )}
-
         </div>
-
       )}
-
-      {/* FUNERAL */}
 
       {isFuneralRequest(
         request.requestType
       ) &&
         request.appointmentDateTime && (
-
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-
             <div className="border-b border-gray-200 p-6">
-
               <h2 className="text-lg font-semibold text-gray-900">
                 Funeral Details
               </h2>
-
             </div>
 
             <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2">
-
               <DetailItem
                 label="Funeral Date"
                 value={
@@ -1749,124 +2117,122 @@ export default function ServiceRequestDetailsPage() {
                   )
                 }
               />
-
             </div>
-
           </div>
-
         )}
-
-      {/* APPOINTMENT */}
 
       {isAppointmentRequest(
         request.requestType
       ) &&
-        request.appointmentDateTime && (
+        appointment && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+            <h2 className="font-semibold text-blue-900">
+              What happens next?
+            </h2>
 
-          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            {appointment.status
+              .toLowerCase() ===
+              "requested" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                Your appointment request has been received. A LegacyCare Clerk at your selected branch will review your preferred date and time.
+              </p>
+            )}
 
-            <div className="border-b border-gray-200 p-6">
+            {appointment.status
+              .toLowerCase() ===
+              "confirmed" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                Your appointment has been confirmed. Please attend the selected branch at the confirmed date and time shown above.
+              </p>
+            )}
 
-              <h2 className="text-lg font-semibold text-gray-900">
-                Appointment Details
-              </h2>
+            {appointment.status
+              .toLowerCase() ===
+              "rescheduled" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                LegacyCare has rescheduled your appointment. Review the new date, time and reschedule reason above.
+              </p>
+            )}
 
-            </div>
+            {appointment.status
+              .toLowerCase() ===
+              "completed" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                This appointment has been completed.
+              </p>
+            )}
 
-            <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2">
+            {appointment.status
+              .toLowerCase() ===
+              "cancelled" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                This appointment has been cancelled. Review the cancellation information above for details.
+              </p>
+            )}
 
-              <DetailItem
-                label="Appointment Date"
-                value={
-                  formatDate(
-                    request.appointmentDateTime
-                  )
-                }
-              />
-
-              <DetailItem
-                label="Appointment Time"
-                value={
-                  formatTime(
-                    request.appointmentDateTime
-                  )
-                }
-              />
-
-            </div>
-
+            {appointment.status
+              .toLowerCase() ===
+              "noshow" && (
+              <p className="mt-2 text-sm leading-6 text-blue-800">
+                This appointment has been marked as a no-show.
+              </p>
+            )}
           </div>
-
         )}
 
-      {/* STATUS INFORMATION */}
+      {!isAppointmentRequest(
+        request.requestType
+      ) && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+          <h2 className="font-semibold text-blue-900">
+            What happens next?
+          </h2>
 
-      <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+          {request.status.toLowerCase() ===
+            "pending" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              Your request has been received and is waiting for a LegacyCare staff member to review it.
+            </p>
+          )}
 
-        <h2 className="font-semibold text-blue-900">
-          What happens next?
-        </h2>
+          {request.status.toLowerCase() ===
+            "approved" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              Your request has been approved by LegacyCare.
+            </p>
+          )}
 
-        {request.status.toLowerCase() ===
-          "pending" && (
+          {request.status.toLowerCase() ===
+            "in progress" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              A LegacyCare staff member is currently working on your request.
+            </p>
+          )}
 
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            Your request has been received and is waiting for a LegacyCare staff member to review it.
-          </p>
+          {request.status.toLowerCase() ===
+            "completed" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              Your request has been completed.
+            </p>
+          )}
 
-        )}
+          {request.status.toLowerCase() ===
+            "rejected" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              Your request was not approved. Review the rejection information above or contact LegacyCare for assistance.
+            </p>
+          )}
 
-        {request.status.toLowerCase() ===
-          "approved" && (
-
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            Your request has been approved by LegacyCare.
-          </p>
-
-        )}
-
-        {request.status.toLowerCase() ===
-          "in progress" && (
-
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            A LegacyCare staff member is currently working on your request.
-          </p>
-
-        )}
-
-        {request.status.toLowerCase() ===
-          "completed" && (
-
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            Your request has been completed.
-          </p>
-
-        )}
-
-        {request.status.toLowerCase() ===
-          "rejected" && (
-
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            Your request was not approved. Review the rejection information above or contact LegacyCare for assistance.
-          </p>
-
-        )}
-
-        {request.status.toLowerCase() ===
-          "cancelled" && (
-
-          <p className="mt-2 text-sm leading-6 text-blue-800">
-            This request has been cancelled.
-          </p>
-
-        )}
-
-      </div>
-
-      {/* ACTIONS */}
+          {request.status.toLowerCase() ===
+            "cancelled" && (
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              This request has been cancelled.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-
         <button
           type="button"
           onClick={() =>
@@ -1880,9 +2246,9 @@ export default function ServiceRequestDetailsPage() {
         </button>
 
         {canEditAppointment(
-          request
+          request,
+          appointment
         ) && (
-
           <button
             type="button"
             onClick={() =>
@@ -1894,13 +2260,11 @@ export default function ServiceRequestDetailsPage() {
           >
             ✏️ Edit Appointment
           </button>
-
         )}
 
         {canEditFuneral(
           request
         ) && (
-
           <button
             type="button"
             onClick={() =>
@@ -1912,11 +2276,8 @@ export default function ServiceRequestDetailsPage() {
           >
             ✏️ Edit Funeral
           </button>
-
         )}
-
       </div>
-
     </div>
   );
 }

@@ -1,12 +1,20 @@
+// File: app/(dashboard)/client/service-requests/booking/page.tsx
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getToken } from "@/lib/auth";
 
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
-   "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api";
+  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api"
+)
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .replace(/;$/, "")
+  .replace(/\/+$/, "");
+
 const appointmentTypes = [
   {
     value: "Policy Consultation",
@@ -34,21 +42,31 @@ type Branch = {
   name?: string | null;
 };
 
-type ServiceRequest = {
+type Appointment = {
+  appointmentId: number;
   serviceRequestId: number;
-  clientId?: string | null;
-  branchId?: string | null;
-  branchName?: string | null;
-  requestType: string;
+  clientId: string;
+  branchId: string;
+  appointmentType: string;
+  preferredDateTime: string;
+  confirmedDateTime?: string | null;
   status: string;
   priority: string;
-  description?: string | null;
-  assignedStaffId?: number | null;
-  createdDate?: string;
-  updatedDate?: string | null;
-  dueDate?: string | null;
-  appointmentDateTime?: string | null;
-  additionalFee?: number;
+  clientNotes?: string | null;
+  clerkNotes?: string | null;
+  assignedStaffId?: string | null;
+  rescheduleReason?: string | null;
+  cancellationReason?: string | null;
+  createdDate: string;
+  updatedDate: string;
+  confirmedDate?: string | null;
+  completedDate?: string | null;
+  cancelledDate?: string | null;
+};
+
+type ApiError = {
+  message?: string;
+  title?: string;
 };
 
 function formatDateForInput(date: Date) {
@@ -66,149 +84,169 @@ function formatTimeForInput(date: Date) {
   return `${hours}:${minutes}`;
 }
 
-function getMinimumDateTime() {
+function getMinimumDate() {
   const date = new Date();
-
   date.setHours(date.getHours() + 24);
 
-  return date;
+  return formatDateForInput(date);
 }
 
-// =========================================================
-// REQUEST TYPE HELPERS
-// (Appointment + Funeral share the same 24-hour edit rule.
-//  Everything else is not editable through this flow.)
-// =========================================================
-
-function normalizeType(value: string) {
-  return value.trim().toLowerCase();
+async function readApiResponse<T>(
+  response: Response
+): Promise<T | null> {
+  return response
+    .json()
+    .then((data) => data as T)
+    .catch(() => null);
 }
 
-function isAppointmentType(value: string) {
-  const type = normalizeType(value);
-  return type === "appointment" || type === "appointment request";
-}
-
-function isFuneralType(value: string) {
-  const type = normalizeType(value);
-  return (
-    type === "funeral" ||
-    type === "funeral service" ||
-    type === "funeral request" ||
-    type === "funeralservice"
-  );
+function getApiErrorMessage(
+  data: ApiError | null,
+  fallback: string
+) {
+  return data?.message || data?.title || fallback;
 }
 
 export default function BookingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const editId = searchParams.get("edit");
-  const isEditMode = Boolean(editId);
+  const editServiceRequestId = searchParams.get("edit");
+  const isEditMode = Boolean(editServiceRequestId);
 
-  const [appointmentType, setAppointmentType] = useState("");
-  const [branchId, setBranchId] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [description, setDescription] = useState("");
+  const [appointmentId, setAppointmentId] =
+    useState<number | null>(null);
 
-  const [priority, setPriority] = useState("Normal");
+  const [appointmentType, setAppointmentType] =
+    useState("");
+
+  const [branchId, setBranchId] =
+    useState("");
+
+  const [date, setDate] =
+    useState("");
+
+  const [time, setTime] =
+    useState("");
+
+  const [clientNotes, setClientNotes] =
+    useState("");
+
+  const [priority, setPriority] =
+    useState("Normal");
 
   const [acceptPriorityFee, setAcceptPriorityFee] =
     useState(false);
 
-  const [loading, setLoading] = useState(false);
-
-  const [loadingRequest, setLoadingRequest] =
-    useState(isEditMode);
+  const [branches, setBranches] =
+    useState<Branch[]>([]);
 
   const [loadingBranches, setLoadingBranches] =
     useState(true);
 
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingAppointment, setLoadingAppointment] =
+    useState(isEditMode);
 
-  const [error, setError] = useState("");
+  const [submitting, setSubmitting] =
+    useState(false);
 
-  // =========================================================
-  // TRACK WHETHER WE ARE EDITING A FUNERAL
-  // (Funeral requests don't use the "appointment type" concept,
-  //  so that section of the form is skipped for them.)
-  // =========================================================
+  const [error, setError] =
+    useState("");
 
-  const [isFuneralEdit, setIsFuneralEdit] = useState(false);
-
-  // =========================================================
-  // MINIMUM DATE
-  // =========================================================
-
-  const minimumDate = formatDateForInput(
-    getMinimumDateTime()
-  );
-
-  // =========================================================
-  // LOAD REAL BRANCHES
-  // =========================================================
+  const minimumDate =
+    useMemo(
+      () => getMinimumDate(),
+      []
+    );
 
   useEffect(() => {
     const loadBranches = async () => {
       try {
         setLoadingBranches(true);
-        setError("");
 
-        const token = getToken();
+        const token =
+          getToken();
 
         if (!token) {
-          setError("You are not logged in.");
+          setError(
+            "You are not logged in."
+          );
+
           return;
         }
 
-        const response = await fetch(
-          `${API_URL}/Branch`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response =
+          await fetch(
+            `${API_URL}/Branch`,
+            {
+              method: "GET",
+              headers: {
+                Accept:
+                  "application/json",
+                Authorization:
+                  `Bearer ${token}`,
+              },
+              cache: "no-store",
+            }
+          );
 
-        const data = await response
-          .json()
-          .catch(() => null);
+        const data =
+          await readApiResponse<unknown>(
+            response
+          );
 
         if (!response.ok) {
           throw new Error(
-            data?.message ||
+            getApiErrorMessage(
+              data as ApiError | null,
               `Unable to load branches (${response.status}).`
+            )
           );
         }
 
         const mappedBranches: Branch[] =
           Array.isArray(data)
             ? data
-                .map((branch) => ({
-                  branchId: String(
-                    branch.branchId ??
-                      branch.id ??
-                      ""
-                  ),
+                .map((branch) => {
+                  const value =
+                    branch as Record<
+                      string,
+                      unknown
+                    >;
 
-                  branchName:
-                    branch.branchName ??
-                    branch.name ??
-                    null,
-                }))
+                  return {
+                    branchId:
+                      String(
+                        value.branchId ??
+                          value.id ??
+                          ""
+                      ),
+
+                    branchName:
+                      typeof value.branchName ===
+                      "string"
+                        ? value.branchName
+                        : null,
+
+                    name:
+                      typeof value.name ===
+                      "string"
+                        ? value.name
+                        : null,
+                  };
+                })
                 .filter(
                   (branch) =>
                     branch.branchId !== ""
                 )
             : [];
 
-        setBranches(mappedBranches);
+        setBranches(
+          mappedBranches
+        );
       } catch (err) {
         console.error(
-          "Load branches error:",
+          "[BookingPage] Load branches error:",
           err
         );
 
@@ -218,506 +256,494 @@ export default function BookingPage() {
             : "Unable to load branches."
         );
       } finally {
-        setLoadingBranches(false);
+        setLoadingBranches(
+          false
+        );
       }
     };
 
-    loadBranches();
+    void loadBranches();
   }, []);
 
-  // =========================================================
-  // LOAD EXISTING APPOINTMENT / FUNERAL
-  // =========================================================
-
   useEffect(() => {
-    if (!editId) {
-      setLoadingRequest(false);
+    if (!editServiceRequestId) {
+      setLoadingAppointment(
+        false
+      );
+
       return;
     }
 
-    const loadExistingRequest = async () => {
-      try {
-        setLoadingRequest(true);
-        setError("");
+    const serviceRequestId =
+      Number(
+        editServiceRequestId
+      );
 
-        const token = getToken();
+    if (
+      !Number.isInteger(
+        serviceRequestId
+      ) ||
+      serviceRequestId <= 0
+    ) {
+      setError(
+        "Invalid service request ID."
+      );
+
+      setLoadingAppointment(
+        false
+      );
+
+      return;
+    }
+
+    const loadAppointment =
+      async () => {
+        try {
+          setLoadingAppointment(
+            true
+          );
+
+          setError("");
+
+          const token =
+            getToken();
+
+          if (!token) {
+            setError(
+              "You are not logged in."
+            );
+
+            return;
+          }
+
+          const response =
+            await fetch(
+              `${API_URL}/Appointment/my/by-service-request/${serviceRequestId}`,
+              {
+                method: "GET",
+                headers: {
+                  Accept:
+                    "application/json",
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await readApiResponse<
+              Appointment | ApiError
+            >(
+              response
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              getApiErrorMessage(
+                data as ApiError | null,
+                `Unable to load appointment (${response.status}).`
+              )
+            );
+          }
+
+          const appointment =
+            data as Appointment;
+
+          if (
+            !appointment ||
+            !appointment.appointmentId
+          ) {
+            throw new Error(
+              "Appointment details were incomplete."
+            );
+          }
+
+          const status =
+            (
+              appointment.status ||
+              ""
+            )
+              .trim()
+              .toLowerCase();
+
+          if (
+            [
+              "completed",
+              "cancelled",
+              "noshow",
+            ].includes(
+              status
+            )
+          ) {
+            throw new Error(
+              "This appointment can no longer be edited."
+            );
+          }
+
+          const scheduledDate =
+            new Date(
+              appointment.confirmedDateTime ??
+                appointment.preferredDateTime
+            );
+
+          if (
+            Number.isNaN(
+              scheduledDate.getTime()
+            )
+          ) {
+            throw new Error(
+              "The appointment date and time are invalid."
+            );
+          }
+
+          const hoursRemaining =
+            (
+              scheduledDate.getTime() -
+              Date.now()
+            ) /
+            (
+              1000 *
+              60 *
+              60
+            );
+
+          if (
+            hoursRemaining <= 24
+          ) {
+            throw new Error(
+              "This appointment can no longer be edited because 24 hours or less remain."
+            );
+          }
+
+          const preferredDate =
+            new Date(
+              appointment.preferredDateTime
+            );
+
+          if (
+            Number.isNaN(
+              preferredDate.getTime()
+            )
+          ) {
+            throw new Error(
+              "The preferred appointment date and time are invalid."
+            );
+          }
+
+          setAppointmentId(
+            appointment.appointmentId
+          );
+
+          setAppointmentType(
+            appointment.appointmentType ||
+              ""
+          );
+
+          setBranchId(
+            appointment.branchId ||
+              ""
+          );
+
+          setDate(
+            formatDateForInput(
+              preferredDate
+            )
+          );
+
+          setTime(
+            formatTimeForInput(
+              preferredDate
+            )
+          );
+
+          setClientNotes(
+            appointment.clientNotes ||
+              ""
+          );
+
+          const savedPriority =
+            appointment.priority ||
+            "Normal";
+
+          setPriority(
+            savedPriority
+          );
+
+          setAcceptPriorityFee(
+            savedPriority.toLowerCase() ===
+              "high"
+          );
+        } catch (err) {
+          console.error(
+            "[BookingPage] Load appointment error:",
+            err
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load appointment."
+          );
+        } finally {
+          setLoadingAppointment(
+            false
+          );
+        }
+      };
+
+    void loadAppointment();
+  }, [editServiceRequestId]);
+
+  const handleSubmit =
+    async (
+      event:
+        React.FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      setError("");
+
+      if (!appointmentType) {
+        setError(
+          "Please select an appointment type."
+        );
+
+        return;
+      }
+
+      if (!branchId) {
+        setError(
+          "Please select a preferred branch."
+        );
+
+        return;
+      }
+
+      if (!date) {
+        setError(
+          "Please select a preferred date."
+        );
+
+        return;
+      }
+
+      if (!time) {
+        setError(
+          "Please select a preferred time."
+        );
+
+        return;
+      }
+
+      if (
+        priority === "High" &&
+        !acceptPriorityFee
+      ) {
+        setError(
+          "Please accept the R100.00 High Priority service fee."
+        );
+
+        return;
+      }
+
+      const preferredDateTime =
+        new Date(
+          `${date}T${time}:00`
+        );
+
+      if (
+        Number.isNaN(
+          preferredDateTime.getTime()
+        )
+      ) {
+        setError(
+          "Invalid date or time."
+        );
+
+        return;
+      }
+
+      if (
+        preferredDateTime.getTime() <=
+        Date.now()
+      ) {
+        setError(
+          "The appointment date and time must be in the future."
+        );
+
+        return;
+      }
+
+      const hoursRemaining =
+        (
+          preferredDateTime.getTime() -
+          Date.now()
+        ) /
+        (
+          1000 *
+          60 *
+          60
+        );
+
+      if (
+        hoursRemaining <= 24
+      ) {
+        setError(
+          "Appointments must be booked more than 24 hours in advance."
+        );
+
+        return;
+      }
+
+      try {
+        setSubmitting(
+          true
+        );
+
+        const token =
+          getToken();
 
         if (!token) {
-          setError("You are not logged in.");
+          setError(
+            "You are not logged in."
+          );
+
           return;
         }
 
-        const response = await fetch(
-          `${API_URL}/ServiceRequest/${editId}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const payload = {
+          appointmentType,
 
-        const data = await response
-          .json()
-          .catch(() => null);
+          branchId,
+
+          preferredDateTime:
+            preferredDateTime.toISOString(),
+
+          clientNotes:
+            clientNotes.trim() ||
+            null,
+
+          priority,
+
+          acceptPriorityFee,
+        };
+
+        if (isEditMode) {
+          if (
+            !appointmentId
+          ) {
+            throw new Error(
+              "Appointment ID is missing."
+            );
+          }
+
+          const response =
+            await fetch(
+              `${API_URL}/Appointment/my/${appointmentId}`,
+              {
+                method: "PUT",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                  Accept:
+                    "application/json",
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+                body:
+                  JSON.stringify(
+                    payload
+                  ),
+              }
+            );
+
+          const data =
+            await readApiResponse<
+              Appointment | ApiError
+            >(
+              response
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              getApiErrorMessage(
+                data as ApiError | null,
+                `Unable to update appointment (${response.status}).`
+              )
+            );
+          }
+
+          router.push(
+            `/client/service-requests/${editServiceRequestId}`
+          );
+
+          router.refresh();
+
+          return;
+        }
+
+        const response =
+          await fetch(
+            `${API_URL}/Appointment`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+                Accept:
+                  "application/json",
+                Authorization:
+                  `Bearer ${token}`,
+              },
+              body:
+                JSON.stringify(
+                  payload
+                ),
+            }
+          );
+
+        const data =
+          await readApiResponse<
+            Appointment | ApiError
+          >(
+            response
+          );
 
         if (!response.ok) {
           throw new Error(
-            data?.message ||
-              `Unable to load request (${response.status}).`
+            getApiErrorMessage(
+              data as ApiError | null,
+              `Unable to submit appointment (${response.status}).`
+            )
           );
         }
 
-        const request: ServiceRequest = data;
-
-        // =====================================================
-        // CHECK REQUEST TYPE
-        // Only Appointment and Funeral can be edited here.
-        // =====================================================
-
-        const appointment = isAppointmentType(
-          request.requestType || ""
+        router.push(
+          "/client/service-requests"
         );
 
-        const funeral = isFuneralType(
-          request.requestType || ""
-        );
-
-        if (!appointment && !funeral) {
-          throw new Error(
-            "This request cannot be edited online. Please call 0817381235 to make changes."
-          );
-        }
-
-        setIsFuneralEdit(funeral);
-
-        // =====================================================
-        // CHECK STATUS
-        // =====================================================
-
-        const status =
-          request.status.toLowerCase();
-
-        if (
-          [
-            "completed",
-            "rejected",
-            "cancelled",
-          ].includes(status)
-        ) {
-          throw new Error(
-            funeral
-              ? "This funeral request can no longer be edited."
-              : "This appointment can no longer be edited."
-          );
-        }
-
-        // =====================================================
-        // CHECK DATE/TIME
-        // =====================================================
-
-        if (!request.appointmentDateTime) {
-          throw new Error(
-            funeral
-              ? "This funeral request does not have a valid date and time."
-              : "This appointment does not have a valid appointment date and time."
-          );
-        }
-
-        const scheduledDate =
-          new Date(
-            request.appointmentDateTime
-          );
-
-        if (
-          Number.isNaN(
-            scheduledDate.getTime()
-          )
-        ) {
-          throw new Error(
-            "The scheduled date and time are invalid."
-          );
-        }
-
-        // =====================================================
-        // CHECK 24-HOUR EDITING RULE
-        // Matches backend: 24 hours or less remaining = locked.
-        // =====================================================
-
-        const hoursRemaining =
-          (scheduledDate.getTime() -
-            new Date().getTime()) /
-          (1000 * 60 * 60);
-
-        if (hoursRemaining <= 24) {
-          throw new Error(
-            funeral
-              ? "This funeral request can no longer be edited because 24 hours or less remain."
-              : "This appointment can no longer be edited because it is less than 24 hours away."
-          );
-        }
-
-        // =====================================================
-        // POPULATE BRANCH
-        // =====================================================
-
-        setBranchId(
-          request.branchId
-            ? String(request.branchId)
-            : ""
-        );
-
-        // =====================================================
-        // POPULATE PRIORITY
-        // =====================================================
-
-        const savedPriority =
-          request.priority || "Normal";
-
-        setPriority(savedPriority);
-
-        setAcceptPriorityFee(
-          savedPriority.toLowerCase() ===
-            "high"
-        );
-
-        // =====================================================
-        // POPULATE DATE / TIME
-        // =====================================================
-
-        setDate(
-          formatDateForInput(
-            scheduledDate
-          )
-        );
-
-        setTime(
-          formatTimeForInput(
-            scheduledDate
-          )
-        );
-
-        // =====================================================
-        // APPOINTMENT-ONLY PARSING
-        // (Funeral requests don't carry an "Appointment Type"
-        //  line, so this only runs for real appointments.)
-        // =====================================================
-
-        if (appointment) {
-          const appointmentTypeMatch =
-            request.description?.match(
-              /Appointment Type:\s*(.+)/i
-            );
-
-          if (appointmentTypeMatch) {
-            setAppointmentType(
-              appointmentTypeMatch[1].trim()
-            );
-          }
-
-          const notesMatch =
-            request.description?.match(
-              /Additional Notes:\s*([\s\S]+)/i
-            );
-
-          if (notesMatch) {
-            setDescription(
-              notesMatch[1].trim()
-            );
-          }
-        } else {
-          // Funeral: use the description as-is.
-          setDescription(
-            request.description || ""
-          );
-        }
+        router.refresh();
       } catch (err) {
         console.error(
-          "Load existing request error:",
+          "[BookingPage] Submit error:",
           err
         );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to load request."
+            : "Unable to process appointment."
         );
       } finally {
-        setLoadingRequest(false);
+        setSubmitting(
+          false
+        );
       }
     };
 
-    loadExistingRequest();
-  }, [editId]);
-
-  // =========================================================
-  // SUBMIT
-  // =========================================================
-
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
-    event.preventDefault();
-
-    setError("");
-
-    // =======================================================
-    // VALIDATION
-    // =======================================================
-
-    // Appointment type only applies to appointments, not funerals.
-    if (!isFuneralEdit && !appointmentType) {
-      setError(
-        "Please select an appointment type."
-      );
-      return;
-    }
-
-    if (!branchId) {
-      setError(
-        "Please select a preferred branch."
-      );
-      return;
-    }
-
-    if (!date) {
-      setError(
-        isFuneralEdit
-          ? "Please select a date."
-          : "Please select a preferred date."
-      );
-      return;
-    }
-
-    if (!time) {
-      setError(
-        isFuneralEdit
-          ? "Please select a time."
-          : "Please select a preferred time."
-      );
-      return;
-    }
-
-    if (
-      priority === "High" &&
-      !acceptPriorityFee
-    ) {
-      setError(
-        "Please accept the R100.00 High Priority service fee."
-      );
-      return;
-    }
-
-    // =======================================================
-    // CREATE DATE/TIME
-    // =======================================================
-
-    const appointmentDateTime = new Date(
-      `${date}T${time}:00`
-    );
-
-    if (
-      Number.isNaN(
-        appointmentDateTime.getTime()
-      )
-    ) {
-      setError(
-        "Invalid date or time."
-      );
-      return;
-    }
-
-    // =======================================================
-    // MUST BE FUTURE
-    // =======================================================
-
-    if (
-      appointmentDateTime.getTime() <=
-      new Date().getTime()
-    ) {
-      setError(
-        isFuneralEdit
-          ? "The date and time must be in the future."
-          : "The appointment date and time must be in the future."
-      );
-      return;
-    }
-
-    // =======================================================
-    // 24-HOUR RULE (matches backend: <= 24 is locked)
-    // =======================================================
-
-    const hoursRemaining =
-      (appointmentDateTime.getTime() -
-        new Date().getTime()) /
-      (1000 * 60 * 60);
-
-    if (hoursRemaining <= 24) {
-      setError(
-        isFuneralEdit
-          ? "Funeral requests must be scheduled more than 24 hours in advance."
-          : "Appointments must be booked more than 24 hours in advance."
-      );
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const token = getToken();
-
-      if (!token) {
-        setError("You are not logged in.");
-        return;
-      }
-
-      // =====================================================
-      // EDIT EXISTING APPOINTMENT / FUNERAL
-      //
-      // IMPORTANT FIX:
-      // The backend's UpdateServiceRequestRequest DTO only has
-      // BranchId, Description, and AppointmentDateTime. This
-      // used to send "date" and "time" as separate raw fields,
-      // which don't bind to anything on the backend, so
-      // AppointmentDateTime always arrived as null and the
-      // update was rejected with "date and time are required."
-      // =====================================================
-
-      if (isEditMode && editId) {
-        const finalDescription = isFuneralEdit
-          ? description
-          : [
-              `Appointment Type: ${appointmentType}`,
-              `Requested Date: ${date}`,
-              `Requested Time: ${time}`,
-              description
-                ? `Additional Notes: ${description}`
-                : "",
-            ]
-              .filter(Boolean)
-              .join("\n");
-
-        const response = await fetch(
-          `${API_URL}/ServiceRequest/${editId}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type":
-                "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              branchId: branchId || null,
-              description: finalDescription,
-              appointmentDateTime:
-                appointmentDateTime.toISOString(),
-            }),
-          }
-        );
-
-        const data = await response
-          .json()
-          .catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              `Unable to update request (${response.status}).`
-          );
-        }
-
-        router.push(
-          `/client/service-requests/${editId}`
-        );
-
-        return;
-      }
-
-      // =====================================================
-      // CREATE NEW APPOINTMENT
-      // (Funeral creation is not part of this flow.)
-      // =====================================================
-
-      const additionalFee =
-        priority === "High"
-          ? 100
-          : 0;
-
-      const response = await fetch(
-        `${API_URL}/ServiceRequest`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            requestType: "Appointment",
-
-            priority,
-
-            acceptPriorityFee,
-
-            additionalFee,
-
-            branchId: branchId || null,
-
-            appointmentDateTime:
-              appointmentDateTime.toISOString(),
-
-            description: [
-              `Appointment Type: ${appointmentType}`,
-              `Requested Date: ${date}`,
-              `Requested Time: ${time}`,
-              description
-                ? `Additional Notes: ${description}`
-                : "",
-            ]
-              .filter(Boolean)
-              .join("\n"),
-          }),
-        }
-      );
-
-      const data = await response
-        .json()
-        .catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            `Unable to submit booking request (${response.status}).`
-        );
-      }
-
-      router.push(
-        "/client/service-requests"
-      );
-    } catch (err) {
-      console.error(
-        "Booking request error:",
-        err
-      );
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to process request."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // =========================================================
-  // LOADING EXISTING REQUEST
-  // =========================================================
-
-  if (loadingRequest) {
+  if (loadingAppointment) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -734,34 +760,23 @@ export default function BookingPage() {
     );
   }
 
-  // =========================================================
-  // PAGE
-  // =========================================================
-
-  const pageTitle = isEditMode
-    ? isFuneralEdit
-      ? "Edit Funeral Request"
-      : "Edit Appointment"
-    : "Book an Appointment";
-
-  const pageSubtitle = isEditMode
-    ? isFuneralEdit
-      ? "Update this funeral request before the 24-hour editing deadline."
-      : "Update your appointment before the 24-hour editing deadline."
-    : "Request an appointment with a LegacyCare branch or staff member.";
+  const selectedBranch =
+    branches.find(
+      (branch) =>
+        branch.branchId ===
+        branchId
+    );
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-
-      {/* HEADER */}
-
       <div>
         <button
           type="button"
           onClick={() =>
             router.push(
-              isEditMode && editId
-                ? `/client/service-requests/${editId}`
+              isEditMode &&
+                editServiceRequestId
+                ? `/client/service-requests/${editServiceRequestId}`
                 : "/client/service-requests"
             )
           }
@@ -771,20 +786,24 @@ export default function BookingPage() {
         </button>
 
         <h1 className="text-2xl font-semibold text-gray-900">
-          {pageTitle}
+          {isEditMode
+            ? "Edit Appointment"
+            : "Book an Appointment"}
         </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          {pageSubtitle}
+          {isEditMode
+            ? "Update your appointment while more than 24 hours remain."
+            : "Request an appointment with a LegacyCare branch."}
         </p>
       </div>
-
-      {/* ERROR */}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-5">
           <div className="flex items-start gap-3">
-            <span className="text-xl">⚠️</span>
+            <span className="text-xl">
+              ⚠️
+            </span>
 
             <div>
               <p className="font-semibold text-red-800">
@@ -794,105 +813,101 @@ export default function BookingPage() {
               <p className="mt-1 text-sm leading-6 text-red-700">
                 {error}
               </p>
-
-              {isEditMode && editId && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    router.push(
-                      `/client/service-requests/${editId}`
-                    )
-                  }
-                  className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-                >
-                  Back to Request
-                </button>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* FORM */}
-
       <form
-        onSubmit={handleSubmit}
+        onSubmit={
+          handleSubmit
+        }
         className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
       >
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            What would you like to discuss?
+          </label>
 
-        {/* APPOINTMENT TYPE — hidden when editing a funeral */}
+          <div className="mt-3 space-y-3">
+            {appointmentTypes.map(
+              (type) => (
+                <label
+                  key={type.value}
+                  className={`block cursor-pointer rounded-xl border p-4 transition ${
+                    appointmentType ===
+                    type.value
+                      ? "border-teal-500 bg-teal-50"
+                      : "border-gray-200 hover:border-teal-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="appointmentType"
+                      value={
+                        type.value
+                      }
+                      checked={
+                        appointmentType ===
+                        type.value
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setAppointmentType(
+                          event
+                            .target
+                            .value
+                        )
+                      }
+                      className="mt-1"
+                    />
 
-        {!isFuneralEdit && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              What would you like to discuss?
-            </label>
-
-            <div className="mt-3 space-y-3">
-              {appointmentTypes.map(
-                (type) => (
-                  <label
-                    key={type.value}
-                    className={`block cursor-pointer rounded-xl border p-4 transition ${
-                      appointmentType ===
-                      type.value
-                        ? "border-teal-500 bg-teal-50"
-                        : "border-gray-200 hover:border-teal-300"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        name="appointmentType"
-                        value={type.value}
-                        checked={
-                          appointmentType ===
-                          type.value
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {
+                          type.label
                         }
-                        onChange={(event) =>
-                          setAppointmentType(
-                            event.target.value
-                          )
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-500">
+                        {
+                          type.description
                         }
-                        className="mt-1"
-                      />
-
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {type.label}
-                        </p>
-
-                        <p className="mt-1 text-sm text-gray-500">
-                          {type.description}
-                        </p>
-                      </div>
+                      </p>
                     </div>
-                  </label>
-                )
-              )}
-            </div>
+                  </div>
+                </label>
+              )
+            )}
           </div>
-        )}
-
-        {/* BRANCH */}
+        </div>
 
         <div className="mt-6">
           <label
             htmlFor="branch"
             className="block text-sm font-medium text-gray-700"
           >
-            {isFuneralEdit ? "Branch" : "Preferred Branch"}
+            Preferred Branch
           </label>
 
           <select
             id="branch"
-            value={branchId}
-            onChange={(event) =>
+            value={
+              branchId
+            }
+            onChange={(
+              event
+            ) =>
               setBranchId(
-                event.target.value
+                event.target
+                  .value
               )
             }
-            disabled={loadingBranches}
+            disabled={
+              loadingBranches
+            }
             className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-gray-100"
           >
             <option value="">
@@ -901,25 +916,39 @@ export default function BookingPage() {
                 : "Select a branch"}
             </option>
 
-            {branches.map((branch) => {
-              const branchName =
-                branch.branchName ||
-                branch.name ||
-                "Unknown Branch";
+            {branches.map(
+              (branch) => {
+                const branchName =
+                  branch.branchName ||
+                  branch.name ||
+                  "Unknown Branch";
 
-              return (
-                <option
-                  key={branch.branchId}
-                  value={branch.branchId}
-                >
-                  {branchName} ({branch.branchId})
-                </option>
-              );
-            })}
+                return (
+                  <option
+                    key={
+                      branch.branchId
+                    }
+                    value={
+                      branch.branchId
+                    }
+                  >
+                    {
+                      branchName
+                    }{" "}
+                    (
+                    {
+                      branch.branchId
+                    }
+                    )
+                  </option>
+                );
+              }
+            )}
           </select>
 
           {!loadingBranches &&
-            branches.length === 0 && (
+            branches.length ===
+              0 && (
               <p className="mt-2 text-xs text-red-600">
                 No branches are currently available.
               </p>
@@ -932,16 +961,10 @@ export default function BookingPage() {
               </p>
 
               <p className="mt-1 text-sm font-semibold text-teal-900">
-                {branches.find(
-                  (branch) =>
-                    branch.branchId ===
-                    branchId
-                )?.branchName ||
-                  branches.find(
-                    (branch) =>
-                      branch.branchId ===
-                      branchId
-                  )?.name ||
+                {selectedBranch
+                  ?.branchName ||
+                  selectedBranch
+                    ?.name ||
                   "Branch"}{" "}
                 ({branchId})
               </p>
@@ -949,67 +972,99 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* DATE */}
-
         <div className="mt-6">
           <label
             htmlFor="date"
             className="block text-sm font-medium text-gray-700"
           >
-            {isFuneralEdit ? "Date" : "Preferred Date"}
+            Preferred Date
           </label>
 
           <input
             id="date"
             type="date"
-            value={date}
-            min={minimumDate}
-            onChange={(event) =>
-              setDate(event.target.value)
+            value={
+              date
+            }
+            min={
+              minimumDate
+            }
+            onChange={(
+              event
+            ) =>
+              setDate(
+                event.target
+                  .value
+              )
             }
             className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
           />
 
           <p className="mt-2 text-xs text-gray-500">
-            {isFuneralEdit
-              ? "Must be scheduled more than 24 hours in advance."
-              : "Appointments must be booked more than 24 hours in advance."}
+            Appointments must be booked more than 24 hours in advance.
           </p>
         </div>
-
-        {/* TIME */}
 
         <div className="mt-6">
           <label
             htmlFor="time"
             className="block text-sm font-medium text-gray-700"
           >
-            {isFuneralEdit ? "Time" : "Preferred Time"}
+            Preferred Time
           </label>
 
           <select
             id="time"
-            value={time}
-            onChange={(event) =>
-              setTime(event.target.value)
+            value={
+              time
+            }
+            onChange={(
+              event
+            ) =>
+              setTime(
+                event.target
+                  .value
+              )
             }
             className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
           >
             <option value="">
               Select a time
             </option>
-            <option value="09:00">09:00</option>
-            <option value="10:00">10:00</option>
-            <option value="11:00">11:00</option>
-            <option value="12:00">12:00</option>
-            <option value="13:00">13:00</option>
-            <option value="14:00">14:00</option>
-            <option value="15:00">15:00</option>
-            <option value="16:00">16:00</option>
+
+            <option value="09:00">
+              09:00
+            </option>
+
+            <option value="10:00">
+              10:00
+            </option>
+
+            <option value="11:00">
+              11:00
+            </option>
+
+            <option value="12:00">
+              12:00
+            </option>
+
+            <option value="13:00">
+              13:00
+            </option>
+
+            <option value="14:00">
+              14:00
+            </option>
+
+            <option value="15:00">
+              15:00
+            </option>
+
+            <option value="16:00">
+              16:00
+            </option>
           </select>
         </div>
-
-        {/* PRIORITY */}
 
         <div className="mt-6">
           <label className="block text-sm font-medium text-gray-700">
@@ -1017,10 +1072,10 @@ export default function BookingPage() {
           </label>
 
           <div className="mt-3 space-y-3">
-
             <label
               className={`block cursor-pointer rounded-xl border p-4 transition ${
-                priority === "Normal"
+                priority ===
+                "Normal"
                   ? "border-teal-500 bg-teal-50"
                   : "border-gray-200 hover:border-teal-300"
               }`}
@@ -1030,10 +1085,18 @@ export default function BookingPage() {
                   type="radio"
                   name="priority"
                   value="Normal"
-                  checked={priority === "Normal"}
+                  checked={
+                    priority ===
+                    "Normal"
+                  }
                   onChange={() => {
-                    setPriority("Normal");
-                    setAcceptPriorityFee(false);
+                    setPriority(
+                      "Normal"
+                    );
+
+                    setAcceptPriorityFee(
+                      false
+                    );
                   }}
                   className="mt-1"
                 />
@@ -1042,9 +1105,11 @@ export default function BookingPage() {
                   <p className="font-medium text-gray-900">
                     Normal Priority
                   </p>
+
                   <p className="mt-1 text-sm text-gray-500">
                     Standard processing. No additional service fee.
                   </p>
+
                   <p className="mt-2 text-sm font-semibold text-gray-700">
                     Additional fee: R0.00
                   </p>
@@ -1054,7 +1119,8 @@ export default function BookingPage() {
 
             <label
               className={`block cursor-pointer rounded-xl border p-4 transition ${
-                priority === "High"
+                priority ===
+                "High"
                   ? "border-amber-500 bg-amber-50"
                   : "border-gray-200 hover:border-amber-300"
               }`}
@@ -1064,10 +1130,18 @@ export default function BookingPage() {
                   type="radio"
                   name="priority"
                   value="High"
-                  checked={priority === "High"}
+                  checked={
+                    priority ===
+                    "High"
+                  }
                   onChange={() => {
-                    setPriority("High");
-                    setAcceptPriorityFee(false);
+                    setPriority(
+                      "High"
+                    );
+
+                    setAcceptPriorityFee(
+                      false
+                    );
                   }}
                   className="mt-1"
                 />
@@ -1076,9 +1150,11 @@ export default function BookingPage() {
                   <p className="font-medium text-gray-900">
                     High Priority
                   </p>
+
                   <p className="mt-1 text-sm text-gray-500">
                     Your request receives priority handling.
                   </p>
+
                   <p className="mt-2 text-sm font-semibold text-amber-700">
                     Additional service fee: R100.00
                   </p>
@@ -1087,10 +1163,13 @@ export default function BookingPage() {
             </label>
           </div>
 
-          {priority === "High" && (
+          {priority ===
+            "High" && (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-start gap-3">
-                <div className="text-xl">⚠️</div>
+                <div className="text-xl">
+                  ⚠️
+                </div>
 
                 <div>
                   <p className="font-semibold text-amber-900">
@@ -1098,25 +1177,33 @@ export default function BookingPage() {
                   </p>
 
                   <p className="mt-1 text-sm leading-6 text-amber-800">
-                    Choosing High Priority will add an additional
-                    <strong> R100.00 service fee</strong> to this request.
+                    Choosing High Priority adds an additional{" "}
+                    <strong>
+                      R100.00 service fee
+                    </strong>
+                    .
                   </p>
 
                   <label className="mt-4 flex cursor-pointer items-start gap-3">
                     <input
                       type="checkbox"
-                      checked={acceptPriorityFee}
-                      onChange={(event) =>
+                      checked={
+                        acceptPriorityFee
+                      }
+                      onChange={(
+                        event
+                      ) =>
                         setAcceptPriorityFee(
-                          event.target.checked
+                          event
+                            .target
+                            .checked
                         )
                       }
                       className="mt-1 h-4 w-4"
                     />
 
                     <span className="text-sm text-amber-900">
-                      I understand and agree to the additional
-                      R100.00 High Priority service fee.
+                      I understand and agree to the additional R100.00 High Priority service fee.
                     </span>
                   </label>
                 </div>
@@ -1125,48 +1212,43 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* NOTES */}
-
         <div className="mt-6">
           <label
-            htmlFor="description"
+            htmlFor="clientNotes"
             className="block text-sm font-medium text-gray-700"
           >
-            {isFuneralEdit ? "Details" : "Additional Notes"}
+            Additional Notes
           </label>
 
           <textarea
-            id="description"
-            rows={4}
-            value={description}
-            onChange={(event) =>
-              setDescription(event.target.value)
+            id="clientNotes"
+            rows={
+              4
+            }
+            value={
+              clientNotes
+            }
+            onChange={(
+              event
+            ) =>
+              setClientNotes(
+                event.target
+                  .value
+              )
             }
             placeholder="Tell us anything else we should know..."
             className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
           />
         </div>
 
-        {/* ERROR */}
-
-        {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-medium text-red-700">
-              {error}
-            </p>
-          </div>
-        )}
-
-        {/* BUTTONS */}
-
         <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-
           <button
             type="button"
             onClick={() =>
               router.push(
-                isEditMode && editId
-                  ? `/client/service-requests/${editId}`
+                isEditMode &&
+                  editServiceRequestId
+                  ? `/client/service-requests/${editServiceRequestId}`
                   : "/client/service-requests"
               )
             }
@@ -1178,48 +1260,52 @@ export default function BookingPage() {
           <button
             type="submit"
             disabled={
-              loading ||
+              submitting ||
               loadingBranches ||
-              (priority === "High" &&
-                !acceptPriorityFee)
+              Boolean(
+                error &&
+                  isEditMode &&
+                  !appointmentId
+              ) ||
+              (
+                priority ===
+                  "High" &&
+                !acceptPriorityFee
+              )
             }
             className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading
+            {submitting
               ? isEditMode
                 ? "Updating..."
                 : "Submitting..."
               : isEditMode
                 ? "Save Changes"
-                : "Submit Booking Request"}
+                : "Submit Appointment Request"}
           </button>
         </div>
       </form>
 
-      {/* INFORMATION */}
-
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
         <h2 className="font-semibold text-blue-900">
-          {isFuneralEdit ? "Funeral Request Policy" : "Appointment Policy"}
+          Appointment Policy
         </h2>
 
         <ul className="mt-2 space-y-1 text-sm text-blue-800">
           <li>
-            • {isFuneralEdit ? "Funeral requests" : "Appointments"} must be
-            scheduled more than 24 hours in advance.
+            • Appointments must be booked more than 24 hours in advance.
           </li>
 
           <li>
-            • You may edit while there are more than 24 hours remaining.
+            • You may edit while more than 24 hours remain.
           </li>
 
           <li>
-            • Once 24 hours or less remain, editing is no longer available.
+            • Changing the preferred date or branch sends the appointment back for Clerk confirmation.
           </li>
 
           <li>
-            • Changing this request sends it back to LegacyCare for
-            confirmation.
+            • The Clerk may confirm your requested time or reschedule it.
           </li>
 
           <li>

@@ -13,10 +13,10 @@ export default function ClerkLayout() {
   const router = useRouter();
   const { logout } = useAuth();
 
-  const handleLogout = (): void => {
+  const confirmLogout = (): void => {
     Alert.alert(
       "Logout",
-      "Are you sure you want to logout?",
+      "Are you sure you want to log out?",
       [
         {
           text: "Cancel",
@@ -25,21 +25,39 @@ export default function ClerkLayout() {
         {
           text: "Logout",
           style: "destructive",
-          onPress: async () => {
-            await logout();
-
-            router.replace(
-              "/login"
-            );
+          onPress: () => {
+            void handleLogout();
           },
         },
-      ]
+      ],
+      {
+        cancelable: true,
+      }
     );
+  };
+
+  const handleLogout = async (): Promise<void> => {
+    try {
+      await logout();
+
+      router.replace("/login");
+    } catch (error) {
+      console.log(
+        "[CLERK LOGOUT] ERROR:",
+        error
+      );
+
+      Alert.alert(
+        "Logout Failed",
+        "Unable to log out. Please try again."
+      );
+    }
   };
 
   return (
     <Tabs
       initialRouteName="index"
+      backBehavior="initialRoute"
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
@@ -110,12 +128,9 @@ export default function ClerkLayout() {
           ),
         }}
         listeners={{
-          tabPress: (
-            event
-          ) => {
+          tabPress: (event) => {
             event.preventDefault();
-
-            handleLogout();
+            confirmLogout();
           },
         }}
       />
@@ -136,3 +151,5 @@ export default function ClerkLayout() {
     </Tabs>
   );
 }
+
+

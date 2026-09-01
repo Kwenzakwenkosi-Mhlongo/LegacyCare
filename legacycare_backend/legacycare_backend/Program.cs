@@ -368,6 +368,8 @@ builder.Services.AddScoped<
     IStaffService,
     StaffService>();
 
+    builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+
 builder.Services.AddScoped<
     IClientValidationService,
     ClientValidationService>();

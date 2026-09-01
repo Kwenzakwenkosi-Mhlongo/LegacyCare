@@ -1,10 +1,15 @@
-// ============================================================
-// FILE: app/(clerk)/profile.tsx
-// ============================================================
+// File: app/(clerk)/profile.tsx
 
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect } from "expo-router";
 import {
+    useCallback,
+    useState,
+} from "react";
+import {
+    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -15,11 +20,133 @@ import {
     SafeAreaView,
 } from "react-native-safe-area-context";
 
-import { useAuth } from "../../src/context/AuthContext";
+import {
+    apiRequest,
+} from "../../services/api";
 import Colors from "../../src/theme/colors";
 
+type ClerkProfile = {
+  userId: string;
+  staffId: string;
+  displayStaffId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  staffRole: string;
+  branchId: string;
+  branchName: string;
+  hireDate: string;
+  isCovered: boolean;
+  isActive: boolean;
+};
+
+function formatDate(
+  value?: string | null
+): string {
+  if (!value) {
+    return "Not available";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "Not available";
+  }
+
+  return date.toLocaleDateString(
+    "en-ZA",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }
+  );
+}
+
 export default function ClerkProfileScreen() {
-  const { user } = useAuth();
+  const [
+    profile,
+    setProfile,
+  ] =
+    useState<ClerkProfile | null>(
+      null
+    );
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] =
+    useState(false);
+
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+  const loadProfile =
+    useCallback(
+      async (): Promise<void> => {
+        try {
+          setError("");
+
+          const result =
+            await apiRequest<
+              ClerkProfile
+            >(
+              "/ClerkProfile/me"
+            );
+
+          setProfile(
+            result
+          );
+        } catch (loadError) {
+          console.log(
+            "[CLERK PROFILE] ERROR:",
+            loadError
+          );
+
+          setError(
+            loadError instanceof
+              Error
+              ? loadError.message
+              : "Unable to load profile."
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      },
+      []
+    );
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+
+      void loadProfile();
+    }, [
+      loadProfile,
+    ])
+  );
+
+  const onRefresh =
+    async (): Promise<void> => {
+      setRefreshing(true);
+
+      await loadProfile();
+    };
 
   return (
     <LinearGradient
@@ -55,6 +182,19 @@ export default function ClerkProfileScreen() {
           showsVerticalScrollIndicator={
             false
           }
+          refreshControl={
+            <RefreshControl
+              refreshing={
+                refreshing
+              }
+              onRefresh={
+                onRefresh
+              }
+              tintColor={
+                Colors.gold
+              }
+            />
+          }
         >
           <Text
             style={
@@ -72,92 +212,207 @@ export default function ClerkProfileScreen() {
             Clerk account details
           </Text>
 
-          <View
-            style={
-              styles.profileCard
-            }
-          >
+          {loading ? (
             <View
               style={
-                styles.avatar
+                styles.loadingCard
               }
             >
-              <Ionicons
-                name="person"
-                size={42}
+              <ActivityIndicator
+                size="large"
                 color={
                   Colors.gold
                 }
               />
-            </View>
 
-            <Text
-              style={
-                styles.name
-              }
-            >
-              {user?.fullName ??
-                "Clerk"}
-            </Text>
-
-            <View
-              style={
-                styles.roleBadge
-              }
-            >
               <Text
                 style={
-                  styles.roleBadgeText
+                  styles.loadingText
                 }
               >
-                {user?.role ??
-                  "Clerk"}
+                Loading profile...
               </Text>
             </View>
-          </View>
-
-          <View
-            style={
-              styles.detailsCard
-            }
-          >
-            <ProfileRow
-              icon="person-outline"
-              label="Full Name"
-              value={
-                user?.fullName ??
-                "Not available"
+          ) : error ? (
+            <View
+              style={
+                styles.errorCard
               }
-            />
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={34}
+                color="#FCA5A5"
+              />
 
-            <ProfileRow
-              icon="mail-outline"
-              label="Email Address"
-              value={
-                user?.email ??
-                "Not available"
-              }
-            />
+              <Text
+                style={
+                  styles.errorTitle
+                }
+              >
+                Unable to load profile
+              </Text>
 
-            <ProfileRow
-              icon="shield-checkmark-outline"
-              label="Role"
-              value={
-                user?.role ??
-                "Clerk"
-              }
-            />
+              <Text
+                style={
+                  styles.errorText
+                }
+              >
+                {error}
+              </Text>
 
-            <ProfileRow
-              icon="key-outline"
-              label="User ID"
-              value={
-                user?.userId ??
-                "Not available"
-              }
-              last
-            />
-          </View>
+              <Text
+                style={
+                  styles.errorHint
+                }
+              >
+                Pull down to retry.
+              </Text>
+            </View>
+          ) : profile ? (
+            <>
+              <View
+                style={
+                  styles.profileCard
+                }
+              >
+                <View
+                  style={
+                    styles.avatar
+                  }
+                >
+                  <Ionicons
+                    name="person"
+                    size={44}
+                    color={
+                      Colors.gold
+                    }
+                  />
+                </View>
+
+                <Text
+                  style={
+                    styles.name
+                  }
+                >
+                  {
+                    profile.fullName
+                  }
+                </Text>
+
+                <Text
+                  style={
+                    styles.email
+                  }
+                >
+                  {
+                    profile.email
+                  }
+                </Text>
+
+                <View
+                  style={
+                    styles.badgesRow
+                  }
+                >
+                  <View
+                    style={
+                      styles.roleBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.roleBadgeText
+                      }
+                    >
+                      {
+                        profile.role
+                      }
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      profile.isActive
+                        ? styles.activeBadge
+                        : styles.inactiveBadge,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.statusBadgeText
+                      }
+                    >
+                      {profile.isActive
+                        ? "Active"
+                        : "Inactive"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View
+                style={
+                  styles.detailsCard
+                }
+              >
+                <ProfileRow
+                  icon="id-card-outline"
+                  label="Staff ID"
+                  value={
+                    profile.displayStaffId ||
+                    profile.staffId
+                  }
+                />
+
+                <ProfileRow
+                  icon="briefcase-outline"
+                  label="Staff Role"
+                  value={
+                    profile.staffRole
+                  }
+                />
+
+                <ProfileRow
+                  icon="business-outline"
+                  label="Branch"
+                  value={
+                    `${profile.branchName} (${profile.branchId})`
+                  }
+                />
+
+                <ProfileRow
+                  icon="calendar-outline"
+                  label="Hire Date"
+                  value={
+                    formatDate(
+                      profile.hireDate
+                    )
+                  }
+                />
+
+                <ProfileRow
+                  icon="shield-checkmark-outline"
+                  label="Covered"
+                  value={
+                    profile.isCovered
+                      ? "Yes"
+                      : "No"
+                  }
+                />
+
+                <ProfileRow
+                  icon="person-outline"
+                  label="User ID"
+                  value={
+                    profile.userId
+                  }
+                  last
+                />
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -254,6 +509,61 @@ const styles =
         Colors.textMuted,
     },
 
+    loadingCard: {
+      minHeight: 220,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor:
+        Colors.border,
+      backgroundColor:
+        Colors.cardBackground,
+    },
+
+    loadingText: {
+      marginTop: 12,
+      fontSize: 13,
+      color:
+        Colors.textMuted,
+    },
+
+    errorCard: {
+      minHeight: 220,
+      padding: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor:
+        Colors.border,
+      backgroundColor:
+        Colors.cardBackground,
+    },
+
+    errorTitle: {
+      marginTop: 12,
+      fontSize: 17,
+      fontWeight: "700",
+      color:
+        Colors.white,
+    },
+
+    errorText: {
+      marginTop: 8,
+      textAlign: "center",
+      fontSize: 12,
+      lineHeight: 17,
+      color: "#FCA5A5",
+    },
+
+    errorHint: {
+      marginTop: 9,
+      fontSize: 11,
+      color:
+        Colors.textMuted,
+    },
+
     profileCard: {
       alignItems: "center",
       paddingVertical: 28,
@@ -267,12 +577,11 @@ const styles =
     },
 
     avatar: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
+      width: 92,
+      height: 92,
+      borderRadius: 46,
       alignItems: "center",
-      justifyContent:
-        "center",
+      justifyContent: "center",
       backgroundColor:
         Colors.primary,
       borderWidth: 1,
@@ -284,15 +593,29 @@ const styles =
       marginTop: 16,
       fontSize: 22,
       fontWeight: "700",
+      textAlign: "center",
       color:
         Colors.white,
+    },
+
+    email: {
+      marginTop: 5,
+      fontSize: 12,
       textAlign: "center",
+      color:
+        Colors.textMuted,
+    },
+
+    badgesRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 12,
+      gap: 8,
     },
 
     roleBadge: {
-      marginTop: 9,
-      paddingHorizontal: 14,
-      paddingVertical: 5,
+      paddingHorizontal: 13,
+      paddingVertical: 6,
       borderRadius: 16,
       backgroundColor:
         Colors.primary,
@@ -303,6 +626,29 @@ const styles =
       fontWeight: "700",
       color:
         Colors.gold,
+    },
+
+    statusBadge: {
+      paddingHorizontal: 13,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+
+    activeBadge: {
+      backgroundColor:
+        "rgba(34,197,94,0.18)",
+    },
+
+    inactiveBadge: {
+      backgroundColor:
+        "rgba(239,68,68,0.18)",
+    },
+
+    statusBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color:
+        Colors.white,
     },
 
     detailsCard: {
@@ -334,8 +680,7 @@ const styles =
       height: 42,
       borderRadius: 12,
       alignItems: "center",
-      justifyContent:
-        "center",
+      justifyContent: "center",
       backgroundColor:
         Colors.primary,
       marginRight: 13,
@@ -343,15 +688,13 @@ const styles =
 
     rowContent: {
       flex: 1,
-      justifyContent:
-        "center",
+      justifyContent: "center",
     },
 
     rowLabel: {
       fontSize: 10,
       fontWeight: "600",
-      textTransform:
-        "uppercase",
+      textTransform: "uppercase",
       color:
         Colors.textMuted,
     },
@@ -365,4 +708,3 @@ const styles =
         Colors.white,
     },
   });
-
