@@ -385,6 +385,11 @@ builder.Services.AddScoped<
 >();
 
 builder.Services.AddScoped<
+    IRequestNumberService,
+    RequestNumberService
+>();
+
+builder.Services.AddScoped<
     IFuneralStaffDeploymentService,
     FuneralStaffDeploymentService
 >();

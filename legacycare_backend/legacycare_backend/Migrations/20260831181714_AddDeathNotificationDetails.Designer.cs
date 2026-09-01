@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PolicyManagement.Data;
 
@@ -11,9 +12,11 @@ using PolicyManagement.Data;
 namespace PolicyManagement.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831181714_AddDeathNotificationDetails")]
+    partial class AddDeathNotificationDetails
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -255,15 +258,10 @@ namespace PolicyManagement.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("RequestNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
-
-                    b.Property<string>("StorageId")
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("StorageUnitNumber")
                         .HasMaxLength(100)
@@ -281,14 +279,6 @@ namespace PolicyManagement.Migrations
                     b.HasIndex("PolicyId");
 
                     b.HasIndex("ReportedByUserId");
-
-                    b.HasIndex("RequestNumber")
-                        .IsUnique()
-                        .HasFilter("[RequestNumber] IS NOT NULL");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("StorageId");
 
                     b.HasIndex("VerifiedByUserId");
 
@@ -364,9 +354,7 @@ namespace PolicyManagement.Migrations
 
                     b.HasIndex("DeceasedId");
 
-                    b.HasIndex("StorageId")
-                        .IsUnique()
-                        .HasFilter("[DateRemoved] IS NULL");
+                    b.HasIndex("StorageId");
 
                     b.ToTable("DeceasedStorage");
                 });
@@ -478,21 +466,16 @@ namespace PolicyManagement.Migrations
 
                     b.Property<string>("BranchId")
                         .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsAvailable")
                         .HasColumnType("bit");
 
                     b.Property<string>("UnitNumber")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("StorageId");
-
-                    b.HasIndex("BranchId", "UnitNumber")
-                        .IsUnique();
 
                     b.ToTable("StorageUnit");
                 });
@@ -752,9 +735,6 @@ namespace PolicyManagement.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("DeathNotificationId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -784,8 +764,6 @@ namespace PolicyManagement.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("ClientId");
-
-                    b.HasIndex("DeathNotificationId");
 
                     b.HasIndex("FuneralRequestId");
 
@@ -1071,11 +1049,6 @@ namespace PolicyManagement.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("PolicyManagement.Models.MortuaryManagement.Storage", "Storage")
-                        .WithMany()
-                        .HasForeignKey("StorageId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("PolicyManagement.Models.UserManagement.User", "VerifiedBy")
                         .WithMany()
                         .HasForeignKey("VerifiedByUserId")
@@ -1088,8 +1061,6 @@ namespace PolicyManagement.Migrations
                     b.Navigation("Policy");
 
                     b.Navigation("ReportedByUser");
-
-                    b.Navigation("Storage");
 
                     b.Navigation("VerifiedBy");
                 });
@@ -1175,15 +1146,6 @@ namespace PolicyManagement.Migrations
                     b.Navigation("FuneralRequest");
 
                     b.Navigation("Staff");
-                });
-
-            modelBuilder.Entity("PolicyManagement.Models.MortuaryManagement.Storage", b =>
-                {
-                    b.HasOne("PolicyManagement.Models.Branch", null)
-                        .WithMany()
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("PolicyManagement.Models.PaymentManagement.Invoice", b =>
@@ -1293,11 +1255,6 @@ namespace PolicyManagement.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("PolicyManagement.Models.MortuaryManagement.DeathNotification", "DeathNotification")
-                        .WithMany()
-                        .HasForeignKey("DeathNotificationId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("PolicyManagement.Models.MortuaryManagement.FuneralRequest", "FuneralRequest")
                         .WithMany()
                         .HasForeignKey("FuneralRequestId");
@@ -1305,8 +1262,6 @@ namespace PolicyManagement.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Client");
-
-                    b.Navigation("DeathNotification");
 
                     b.Navigation("FuneralRequest");
                 });

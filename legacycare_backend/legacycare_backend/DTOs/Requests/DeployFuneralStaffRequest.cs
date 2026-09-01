@@ -1,3 +1,4 @@
+
 using System.ComponentModel.DataAnnotations;
 
 namespace PolicyManagement.DTOs.Requests
@@ -5,6 +6,8 @@ namespace PolicyManagement.DTOs.Requests
     public class DeployFuneralStaffRequest
     {
         [Required]
-        public List<string> StaffIds { get; set; } = new();
+        [MinLength(4)]
+        [MaxLength(4)]
+        public List<string> StaffIds { get; set; } = [];
     }
 }

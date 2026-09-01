@@ -1,3 +1,5 @@
+// FILE: Models/Beneficiary.cs
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using PolicyManagement.Enums;
@@ -7,7 +9,8 @@ namespace PolicyManagement.Models
     public class Beneficiary
     {
         [Key]
-        public string BeneficiaryId { get; set; } = Guid.NewGuid().ToString();
+        public string BeneficiaryId { get; set; }
+            = Guid.NewGuid().ToString();
 
         [Required]
         [StringLength(100)]
@@ -27,8 +30,8 @@ namespace PolicyManagement.Models
         [Required]
         public BeneficiaryRelationship Relationship { get; set; }
 
-        public BeneficiaryStatus Status { get; set; } =
-            BeneficiaryStatus.Alive;
+        public BeneficiaryStatus Status { get; set; }
+            = BeneficiaryStatus.Alive;
 
         [Required]
         public string PolicyId { get; set; } = string.Empty;
@@ -68,36 +71,69 @@ namespace PolicyManagement.Models
             BeneficiaryRelationship relationship)
         {
             if (string.IsNullOrWhiteSpace(fullName))
-                throw new ArgumentException("Full name is required.");
+            {
+                throw new ArgumentException(
+                    "Full name is required.",
+                    nameof(fullName));
+            }
 
             if (dateOfBirth == default)
-                throw new ArgumentException("Date of birth is required.");
-
-            if (dateOfBirth > DateTime.Today)
+            {
                 throw new ArgumentException(
-                    "Date of birth cannot be in the future.");
+                    "Date of birth is required.",
+                    nameof(dateOfBirth));
+            }
+
+            if (dateOfBirth.Date > DateTime.UtcNow.Date)
+            {
+                throw new ArgumentException(
+                    "Date of birth cannot be in the future.",
+                    nameof(dateOfBirth));
+            }
 
             if (string.IsNullOrWhiteSpace(gender))
-                throw new ArgumentException("Gender is required.");
+            {
+                throw new ArgumentException(
+                    "Gender is required.",
+                    nameof(gender));
+            }
 
-            FullName = fullName;
+            FullName = fullName.Trim();
             DateOfBirth = dateOfBirth;
-            Gender = gender;
+            Gender = gender.Trim();
             Relationship = relationship;
         }
 
         public void MarkAsDeceased()
         {
+            if (Status == BeneficiaryStatus.Removed)
+            {
+                throw new InvalidOperationException(
+                    "A removed beneficiary cannot be marked as deceased.");
+            }
+
             Status = BeneficiaryStatus.Deceased;
         }
 
         public void Remove()
         {
+            if (Status == BeneficiaryStatus.Deceased)
+            {
+                throw new InvalidOperationException(
+                    "A deceased beneficiary cannot be removed.");
+            }
+
             Status = BeneficiaryStatus.Removed;
         }
 
         public void Reinstate()
         {
+            if (Status == BeneficiaryStatus.Deceased)
+            {
+                throw new InvalidOperationException(
+                    "A deceased beneficiary cannot be reinstated.");
+            }
+
             Status = BeneficiaryStatus.Alive;
         }
     }

@@ -2,8 +2,8 @@
 {
     public class UpdateDeceasedRequest
     {
-        public string FullName { get; set; }
-        public string Gender { get; set; }
-        public string CauseOfDeath { get; set; }
+        public required string FullName { get; set; }
+        public required string Gender { get; set; }
+        public required string CauseOfDeath { get; set; }
     }
 }

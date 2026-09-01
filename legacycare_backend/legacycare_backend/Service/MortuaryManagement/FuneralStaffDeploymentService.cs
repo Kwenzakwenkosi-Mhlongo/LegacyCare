@@ -1,6 +1,12 @@
+// ============================================================
+// FILE:
+// Service/MortuaryManagement/FuneralStaffDeploymentService.cs
+// ============================================================
+
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Data;
 using PolicyManagement.DTOs.Requests;
+using PolicyManagement.Enums;
 using PolicyManagement.Models.MortuaryManagement;
 
 namespace PolicyManagement.Service.MortuaryManagement
@@ -8,6 +14,8 @@ namespace PolicyManagement.Service.MortuaryManagement
     public class FuneralStaffDeploymentService
         : IFuneralStaffDeploymentService
     {
+        private const int StaffPerFuneral = 4;
+
         private readonly AppDbContext _context;
 
         public FuneralStaffDeploymentService(
@@ -17,37 +25,64 @@ namespace PolicyManagement.Service.MortuaryManagement
         }
 
         // ============================================================
-        // GET DEPLOYED STAFF FOR A FUNERAL
+        // GET DEPLOYED STAFF
         // ============================================================
 
         public IEnumerable<FuneralStaffDeployment>
             GetByFuneralRequest(
                 string funeralRequestId)
         {
-            return _context.Set<FuneralStaffDeployment>()
+            if (string.IsNullOrWhiteSpace(
+                funeralRequestId))
+            {
+                throw new ArgumentException(
+                    "Funeral request ID is required.",
+                    nameof(funeralRequestId));
+            }
+
+            return _context
+                .FuneralStaffDeployments
                 .Include(x => x.Staff)
-                    .ThenInclude(x => x!.User)
+                    .ThenInclude(x =>
+                        x!.User)
+                .Include(x => x.Staff)
+                    .ThenInclude(x =>
+                        x!.Branch)
                 .Where(x =>
                     x.FuneralRequestId ==
                     funeralRequestId)
-                .OrderBy(x => x.StaffId)
+                .OrderBy(x =>
+                    x.Staff!.User.FullName)
                 .ToList();
         }
 
         // ============================================================
-        // GET AVAILABLE OPERATIONAL STAFF
+        // GET AVAILABLE STAFF
+        //
+        // Only:
+        // - active staff
+        // - same branch as funeral
+        // - operational roles
+        // - not booked for another funeral at same date/time
         // ============================================================
 
-        public IEnumerable<object> GetAvailableStaff(
-            string funeralRequestId,
-            int requiredStaff)
+        public IEnumerable<object>
+            GetAvailableStaff(
+                string funeralRequestId,
+                int requiredStaff)
         {
-            // --------------------------------------------------------
-            // FIND FUNERAL
-            // --------------------------------------------------------
+            if (string.IsNullOrWhiteSpace(
+                funeralRequestId))
+            {
+                throw new ArgumentException(
+                    "Funeral request ID is required.",
+                    nameof(funeralRequestId));
+            }
 
             var funeral =
-                _context.Set<FuneralRequest>()
+                _context.FuneralRequests
+                    .Include(x =>
+                        x.Branch)
                     .FirstOrDefault(x =>
                         x.FuneralRequestId ==
                         funeralRequestId);
@@ -58,76 +93,93 @@ namespace PolicyManagement.Service.MortuaryManagement
                     "Funeral request not found.");
             }
 
-            // --------------------------------------------------------
-            // VALIDATE STAFF COUNT
-            // --------------------------------------------------------
-
-            if (requiredStaff <= 0)
+            if (string.IsNullOrWhiteSpace(
+                funeral.BranchId))
             {
                 throw new InvalidOperationException(
-                    "The number of staff required must be greater than zero.");
+                    "This funeral has no LegacyCare branch assigned.");
             }
 
-            if (requiredStaff > 30)
+            if (string.Equals(
+                    funeral.Status,
+                    "Rejected",
+                    StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(
+                    funeral.Status,
+                    "Cancelled",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    "The number of staff cannot exceed the 30 available operational staff.");
+                    "Staff cannot be assigned to a rejected or cancelled funeral.");
             }
 
-            // --------------------------------------------------------
-            // STAFF ALREADY DEPLOYED TO THIS FUNERAL
-            // --------------------------------------------------------
+            // LegacyCare rule is fixed at 4.
+            requiredStaff =
+                StaffPerFuneral;
 
-            var deployedStaffIds =
-                _context.Set<FuneralStaffDeployment>()
+            var deployedToThisFuneral =
+                _context
+                    .FuneralStaffDeployments
                     .Where(x =>
                         x.FuneralRequestId ==
                         funeralRequestId)
-                    .Select(x => x.StaffId)
+                    .Select(x =>
+                        x.StaffId)
                     .ToHashSet();
 
-            // --------------------------------------------------------
-            // STAFF BUSY ON SAME FUNERAL DATE
-            // --------------------------------------------------------
+            // Staff are considered unavailable when they are assigned
+            // to another active funeral at the same date and time.
 
             var busyStaffIds =
-                _context.Set<FuneralStaffDeployment>()
-                    .Include(x => x.FuneralRequest)
+                _context
+                    .FuneralStaffDeployments
                     .Where(x =>
+                        x.FuneralRequestId !=
+                            funeralRequestId &&
+
                         x.FuneralRequest != null &&
-                        x.FuneralRequest.FuneralDate.Date ==
-                        funeral.FuneralDate.Date)
-                    .Select(x => x.StaffId)
+
+                        x.FuneralRequest.FuneralDate ==
+                            funeral.FuneralDate &&
+
+                        x.FuneralRequest.FuneralTime ==
+                            funeral.FuneralTime &&
+
+                        x.FuneralRequest.Status !=
+                            "Rejected" &&
+
+                        x.FuneralRequest.Status !=
+                            "Cancelled")
+                    .Select(x =>
+                        x.StaffId)
+                    .Distinct()
                     .ToHashSet();
 
-            // --------------------------------------------------------
-            // OPERATIONAL STAFF
-            //
-            // We exclude:
-            // Admin
-            // Clerk
-            //
-            // because only operational staff should be deployed.
-            // --------------------------------------------------------
-
-            var availableStaff =
+            var staff =
                 _context.Staff
-                    .Include(x => x.User)
+                    .Include(x =>
+                        x.User)
+                    .Include(x =>
+                        x.Branch)
                     .Where(x =>
-                        x.User != null &&
+                        x.BranchId ==
+                            funeral.BranchId &&
                         x.User.IsActive)
                     .AsEnumerable()
                     .Where(x =>
-                        x.StaffRole.ToString()
-                            != "Admin" &&
-                        x.StaffRole.ToString()
-                            != "Clerk")
+                        IsOperationalRole(
+                            x.StaffRole))
                     .Where(x =>
-                        !busyStaffIds.Contains(x.StaffId) ||
-                        deployedStaffIds.Contains(x.StaffId))
+                        deployedToThisFuneral
+                            .Contains(
+                                x.StaffId) ||
+                        !busyStaffIds
+                            .Contains(
+                                x.StaffId))
                     .Select(x => new
                     {
-                        staffId = x.StaffId,
+                        staffId =
+                            x.StaffId,
 
                         displayStaffId =
                             x.DisplayStaffId,
@@ -141,19 +193,26 @@ namespace PolicyManagement.Service.MortuaryManagement
                         branchId =
                             x.BranchId,
 
+                        branchName =
+                            x.Branch?.BranchName,
+
                         isAlreadyDeployed =
-                            deployedStaffIds.Contains(
-                                x.StaffId)
+                            deployedToThisFuneral
+                                .Contains(
+                                    x.StaffId)
                     })
                     .OrderBy(x =>
                         x.fullName)
                     .ToList();
 
-            return availableStaff;
+            return staff;
         }
 
         // ============================================================
-        // DEPLOY STAFF
+        // DEPLOY / ASSIGN EXACTLY 4 STAFF
+        //
+        // Staff assignment happens while funeral is Pending.
+        // Approval happens AFTER all 4 staff have been assigned.
         // ============================================================
 
         public IEnumerable<FuneralStaffDeployment>
@@ -162,12 +221,32 @@ namespace PolicyManagement.Service.MortuaryManagement
                 string funeralRequestId,
                 DeployFuneralStaffRequest request)
         {
-            // --------------------------------------------------------
-            // FIND FUNERAL
-            // --------------------------------------------------------
+            if (string.IsNullOrWhiteSpace(
+                deployedByUserId))
+            {
+                throw new ArgumentException(
+                    "Deploying user ID is required.",
+                    nameof(deployedByUserId));
+            }
+
+            if (string.IsNullOrWhiteSpace(
+                funeralRequestId))
+            {
+                throw new ArgumentException(
+                    "Funeral request ID is required.",
+                    nameof(funeralRequestId));
+            }
+
+            if (request == null)
+            {
+                throw new InvalidOperationException(
+                    "Staff selection is required.");
+            }
 
             var funeral =
-                _context.Set<FuneralRequest>()
+                _context.FuneralRequests
+                    .Include(x =>
+                        x.StaffDeployments)
                     .FirstOrDefault(x =>
                         x.FuneralRequestId ==
                         funeralRequestId);
@@ -179,200 +258,218 @@ namespace PolicyManagement.Service.MortuaryManagement
             }
 
             // --------------------------------------------------------
-            // FUNERAL MUST BE APPROVED
+            // STAFF MUST BE ASSIGNED BEFORE APPROVAL
             // --------------------------------------------------------
 
             if (!string.Equals(
                     funeral.Status,
-                    "Approved",
+                    "Pending",
                     StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    "Staff can only be deployed to an approved funeral.");
+                    "Staff can only be assigned while the funeral request is pending.");
             }
 
-            // --------------------------------------------------------
-            // STAFF IDS REQUIRED
-            // --------------------------------------------------------
-
-            if (request.StaffIds == null ||
-                request.StaffIds.Count == 0)
+            if (string.IsNullOrWhiteSpace(
+                funeral.BranchId))
             {
                 throw new InvalidOperationException(
-                    "At least one staff member must be selected.");
+                    "This funeral has no LegacyCare branch assigned.");
             }
 
             // --------------------------------------------------------
-            // REMOVE DUPLICATES
+            // EXACTLY FOUR UNIQUE STAFF IDS
             // --------------------------------------------------------
 
             var requestedStaffIds =
-                request.StaffIds
-                    .Where(x =>
-                        !string.IsNullOrWhiteSpace(x))
-                    .Select(x =>
-                        x.Trim())
-                    .Distinct(
-                        StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-            // --------------------------------------------------------
-            // EXACT NUMBER REQUIRED
-            // --------------------------------------------------------
+                (request.StaffIds ??
+                 [])
+                .Where(x =>
+                    !string.IsNullOrWhiteSpace(
+                        x))
+                .Select(x =>
+                    x.Trim())
+                .Distinct(
+                    StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             if (requestedStaffIds.Count !=
-                funeral.StaffRequired)
+                StaffPerFuneral)
             {
                 throw new InvalidOperationException(
-                    $"Exactly {funeral.StaffRequired} staff members must be selected.");
+                    $"Exactly {StaffPerFuneral} staff members must be selected.");
             }
 
             // --------------------------------------------------------
-            // FIND STAFF
+            // LOAD STAFF
             // --------------------------------------------------------
 
             var staffMembers =
                 _context.Staff
-                    .Include(x => x.User)
+                    .Include(x =>
+                        x.User)
+                    .Include(x =>
+                        x.Branch)
                     .Where(x =>
-                        requestedStaffIds.Contains(
-                            x.StaffId))
+                        requestedStaffIds
+                            .Contains(
+                                x.StaffId))
                     .ToList();
 
             if (staffMembers.Count !=
-                requestedStaffIds.Count)
+                StaffPerFuneral)
             {
                 throw new InvalidOperationException(
                     "One or more selected staff members could not be found.");
             }
 
             // --------------------------------------------------------
-            // CHECK ACTIVE
+            // VALIDATE STAFF
             // --------------------------------------------------------
 
-            var inactiveStaff =
-                staffMembers
-                    .Where(x =>
-                        x.User == null ||
-                        !x.User.IsActive)
-                    .ToList();
-
-            if (inactiveStaff.Any())
+            foreach (var staff
+                     in staffMembers)
             {
-                throw new InvalidOperationException(
-                    "One or more selected staff members are inactive.");
+                if (!string.Equals(
+                        staff.BranchId,
+                        funeral.BranchId,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Staff member {staff.DisplayStaffId} does not belong to funeral branch {funeral.BranchId}.");
+                }
+
+                if (staff.User == null ||
+                    !staff.User.IsActive)
+                {
+                    throw new InvalidOperationException(
+                        $"Staff member {staff.DisplayStaffId} is inactive.");
+                }
+
+                if (!IsOperationalRole(
+                        staff.StaffRole))
+                {
+                    throw new InvalidOperationException(
+                        $"Staff member {staff.DisplayStaffId} is not operational funeral staff.");
+                }
             }
 
             // --------------------------------------------------------
-            // ONLY OPERATIONAL STAFF
+            // DOUBLE-BOOKING CHECK
             // --------------------------------------------------------
 
-            var nonOperationalStaff =
-                staffMembers
-                    .Where(x =>
-                        x.StaffRole.ToString() == "Admin" ||
-                        x.StaffRole.ToString() == "Clerk")
-                    .ToList();
-
-            if (nonOperationalStaff.Any())
-            {
-                throw new InvalidOperationException(
-                    "Only operational staff can be deployed to a funeral.");
-            }
-
-            // --------------------------------------------------------
-            // STAFF ALREADY DEPLOYED TO THIS FUNERAL
-            // --------------------------------------------------------
-
-            var existingForThisFuneral =
-                _context.Set<FuneralStaffDeployment>()
-                    .Where(x =>
-                        x.FuneralRequestId ==
-                        funeralRequestId)
-                    .Select(x =>
-                        x.StaffId)
-                    .ToHashSet();
-
-            var alreadyAssigned =
-                requestedStaffIds
-                    .Where(x =>
-                        existingForThisFuneral
-                            .Contains(x))
-                    .ToList();
-
-            if (alreadyAssigned.Any())
-            {
-                throw new InvalidOperationException(
-                    "One or more selected staff members are already deployed to this funeral.");
-            }
-
-            // --------------------------------------------------------
-            // STAFF BUSY ON SAME DATE
-            // --------------------------------------------------------
-
-            var busyStaffIds =
+            var conflictingStaffIds =
                 _context
-                    .Set<FuneralStaffDeployment>()
-                    .Include(x =>
-                        x.FuneralRequest)
+                    .FuneralStaffDeployments
                     .Where(x =>
+                        requestedStaffIds
+                            .Contains(
+                                x.StaffId) &&
+
+                        x.FuneralRequestId !=
+                            funeralRequestId &&
+
                         x.FuneralRequest != null &&
-                        x.FuneralRequest.FuneralDate.Date ==
-                        funeral.FuneralDate.Date)
+
+                        x.FuneralRequest.FuneralDate ==
+                            funeral.FuneralDate &&
+
+                        x.FuneralRequest.FuneralTime ==
+                            funeral.FuneralTime &&
+
+                        x.FuneralRequest.Status !=
+                            "Rejected" &&
+
+                        x.FuneralRequest.Status !=
+                            "Cancelled")
                     .Select(x =>
                         x.StaffId)
-                    .ToHashSet();
-
-            var unavailableStaff =
-                requestedStaffIds
-                    .Where(x =>
-                        busyStaffIds.Contains(x))
+                    .Distinct()
                     .ToList();
 
-            if (unavailableStaff.Any())
+            if (conflictingStaffIds.Count >
+                0)
             {
+                var conflicts =
+                    string.Join(
+                        ", ",
+                        conflictingStaffIds);
+
                 throw new InvalidOperationException(
-                    "One or more selected staff members are already deployed to another funeral on this date.");
+                    $"The following staff members are already assigned to another funeral at the same time: {conflicts}.");
             }
 
-            // --------------------------------------------------------
-            // CREATE DEPLOYMENTS
-            // --------------------------------------------------------
+            using var transaction =
+                _context.Database
+                    .BeginTransaction();
 
-            foreach (var staffId in requestedStaffIds)
+            try
             {
-                var deployment =
-                    new FuneralStaffDeployment
-                    {
-                        FuneralRequestId =
-                            funeralRequestId,
+                // ----------------------------------------------------
+                // REPLACE EXISTING PENDING ASSIGNMENT
+                // ----------------------------------------------------
 
-                        StaffId =
-                            staffId,
+                var existingDeployments =
+                    _context
+                        .FuneralStaffDeployments
+                        .Where(x =>
+                            x.FuneralRequestId ==
+                            funeralRequestId)
+                        .ToList();
 
-                        DeployedByUserId =
-                            deployedByUserId,
+                if (existingDeployments.Count >
+                    0)
+                {
+                    _context
+                        .FuneralStaffDeployments
+                        .RemoveRange(
+                            existingDeployments);
+                }
 
-                        DeployedDate =
-                            DateTime.Now
-                    };
+                // ----------------------------------------------------
+                // CREATE FOUR DEPLOYMENTS
+                // ----------------------------------------------------
 
-                _context
-                    .Set<FuneralStaffDeployment>()
-                    .Add(deployment);
+                foreach (var staffId
+                         in requestedStaffIds)
+                {
+                    _context
+                        .FuneralStaffDeployments
+                        .Add(
+                            new FuneralStaffDeployment
+                            {
+                                FuneralRequestId =
+                                    funeralRequestId,
+
+                                StaffId =
+                                    staffId,
+
+                                DeployedByUserId =
+                                    deployedByUserId,
+
+                                DeployedDate =
+                                    DateTime.UtcNow
+                            });
+                }
+
+                // Do NOT change the funeral to "Staff Deployed".
+                // It must remain Pending until the clerk approves it.
+
+                funeral.StaffRequired =
+                    StaffPerFuneral;
+
+                funeral.UpdatedDate =
+                    DateTime.UtcNow;
+
+                _context.SaveChanges();
+
+                transaction.Commit();
             }
-
-            // --------------------------------------------------------
-            // UPDATE FUNERAL STATUS
-            // --------------------------------------------------------
-
-            funeral.Status =
-                "Staff Deployed";
-
-            funeral.UpdatedDate =
-                DateTime.Now;
-
-            _context.SaveChanges();
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
 
             return GetByFuneralRequest(
                 funeralRequestId);
@@ -386,9 +483,17 @@ namespace PolicyManagement.Service.MortuaryManagement
             string deployedByUserId,
             int deploymentId)
         {
+            if (string.IsNullOrWhiteSpace(
+                deployedByUserId))
+            {
+                throw new ArgumentException(
+                    "User ID is required.",
+                    nameof(deployedByUserId));
+            }
+
             var deployment =
                 _context
-                    .Set<FuneralStaffDeployment>()
+                    .FuneralStaffDeployments
                     .Include(x =>
                         x.FuneralRequest)
                     .FirstOrDefault(x =>
@@ -401,68 +506,53 @@ namespace PolicyManagement.Service.MortuaryManagement
                     "Staff deployment was not found.");
             }
 
-            if (deployment.FuneralRequest == null)
+            if (deployment.FuneralRequest ==
+                null)
             {
                 throw new InvalidOperationException(
-                    "The funeral request associated with this deployment could not be found.");
+                    "The funeral associated with this deployment could not be found.");
             }
 
-            // --------------------------------------------------------
-            // ONLY APPROVED / DEPLOYED FUNERALS
-            // --------------------------------------------------------
+            // Once approved, staffing should be treated as locked.
+            // Changes can be added later as an Admin-only workflow.
 
-            if (
-                !string.Equals(
+            if (!string.Equals(
                     deployment.FuneralRequest.Status,
-                    "Approved",
-                    StringComparison.OrdinalIgnoreCase)
-                &&
-                !string.Equals(
-                    deployment.FuneralRequest.Status,
-                    "Staff Deployed",
-                    StringComparison.OrdinalIgnoreCase)
-            )
+                    "Pending",
+                    StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
-                    "Staff can only be removed from an approved or deployed funeral.");
+                    "Staff assignments can only be changed while the funeral request is pending.");
             }
-
-            // --------------------------------------------------------
-            // REMOVE
-            // --------------------------------------------------------
 
             _context
-                .Set<FuneralStaffDeployment>()
-                .Remove(deployment);
+                .FuneralStaffDeployments
+                .Remove(
+                    deployment);
 
-            // --------------------------------------------------------
-            // CHECK REMAINING STAFF
-            // --------------------------------------------------------
-
-            var remainingStaff =
-                _context
-                    .Set<FuneralStaffDeployment>()
-                    .Count(x =>
-                        x.FuneralRequestId ==
-                        deployment.FuneralRequestId &&
-                        x.FuneralStaffDeploymentId !=
-                        deploymentId);
-
-            if (remainingStaff == 0)
-            {
-                deployment.FuneralRequest.Status =
-                    "Approved";
-            }
-            else
-            {
-                deployment.FuneralRequest.Status =
-                    "Staff Deployed";
-            }
-
-            deployment.FuneralRequest.UpdatedDate =
-                DateTime.Now;
+            deployment
+                .FuneralRequest
+                .UpdatedDate =
+                    DateTime.UtcNow;
 
             _context.SaveChanges();
+        }
+
+        // ============================================================
+        // OPERATIONAL STAFF ROLE
+        // ============================================================
+
+        private static bool IsOperationalRole(
+            StaffType role)
+        {
+            return role ==
+                       StaffType.Driver ||
+                   role ==
+                       StaffType.GraveDigger ||
+                   role ==
+                       StaffType.MortuaryAttendant ||
+                   role ==
+                       StaffType.OnSiteStaff;
         }
     }
 }

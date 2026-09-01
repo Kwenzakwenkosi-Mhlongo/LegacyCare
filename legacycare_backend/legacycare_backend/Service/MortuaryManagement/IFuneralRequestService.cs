@@ -1,3 +1,5 @@
+// Service/MortuaryManagement/IFuneralRequestService.cs
+
 using PolicyManagement.DTOs.Requests;
 using PolicyManagement.Models.MortuaryManagement;
 
@@ -9,14 +11,13 @@ namespace PolicyManagement.Service.MortuaryManagement
             string userId,
             CreateFuneralRequestRequest request);
 
-        IEnumerable<FuneralRequest>
-            GetByClientUserId(string userId);
+        IEnumerable<FuneralRequest> GetByClientUserId(
+            string userId);
 
-        FuneralRequest?
-            GetById(string funeralRequestId);
+        FuneralRequest? GetById(
+            string funeralRequestId);
 
-        IEnumerable<FuneralRequest>
-            GetPendingRequests();
+        IEnumerable<FuneralRequest> GetPendingRequests();
 
         FuneralRequest Review(
             string clerkUserId,

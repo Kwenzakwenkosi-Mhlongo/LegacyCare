@@ -7,8 +7,16 @@ namespace PolicyManagement.Models
 {
     public class Branch
     {
+        // =====================================================
+        // PRIMARY KEY
+        // =====================================================
+
         [Key]
         public string BranchId { get; set; } = string.Empty;
+
+        // =====================================================
+        // BRANCH INFORMATION
+        // =====================================================
 
         [Required]
         public string BranchName { get; set; } = string.Empty;
@@ -48,9 +56,12 @@ namespace PolicyManagement.Models
         public ICollection<ServiceRequest> ServiceRequests { get; set; }
             = new List<ServiceRequest>();
 
+        // =====================================================
+        // CONSTRUCTOR
+        // =====================================================
+
         public Branch()
         {
-            BranchId = Guid.NewGuid().ToString();
             IsActive = true;
         }
     }

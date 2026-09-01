@@ -62,6 +62,12 @@ namespace PolicyManagement.Models
 
         public DateTime? AppointmentDateTime { get; set; }
 
+
+    public string? DeathNotificationId { get; set; }
+
+public DeathNotification?
+    DeathNotification { get; set; }
+
         // ============================================================
         // HIGH PRIORITY FEE
         // ============================================================

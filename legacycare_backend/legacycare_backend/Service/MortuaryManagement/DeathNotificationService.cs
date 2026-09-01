@@ -1,5 +1,12 @@
+// ============================================================================
+// FILE: Service/MortuaryManagement/DeathNotificationService.cs
+// ============================================================================
+
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Data;
+using PolicyManagement.DTOs.Requests;
+using PolicyManagement.Enums;
 using PolicyManagement.Models.MortuaryManagement;
 
 namespace PolicyManagement.Service.MortuaryManagement
@@ -8,127 +15,56 @@ namespace PolicyManagement.Service.MortuaryManagement
     {
         private readonly AppDbContext _context;
 
-        public DeathNotificationService(AppDbContext context)
+        public DeathNotificationService(
+            AppDbContext context)
         {
             _context = context;
         }
 
-        // =========================================================
-        // CREATE
-        // =========================================================
-
-        public DeathNotification CreateNotification(
-            DeathNotification notification)
-        {
-            if (notification == null)
-            {
-                throw new ArgumentNullException(nameof(notification));
-            }
-
-            if (string.IsNullOrWhiteSpace(notification.BranchId))
-            {
-                throw new InvalidOperationException(
-                    "A branch must be assigned before creating a death notification.");
-            }
-
-            _context.DeathNotifications.Add(notification);
-
-            _context.SaveChanges();
-
-            return notification;
-        }
-
-        // =========================================================
-        // GET BY ID
-        // =========================================================
-
-        public DeathNotification? GetById(
-            string notificationId)
+        public async Task<DeathNotification?> GetByIdAsync(
+            string notificationId,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(notificationId))
             {
                 return null;
             }
 
-            return _context.DeathNotifications
+            return await _context.DeathNotifications
+                .AsNoTracking()
                 .Include(x => x.Policy)
                 .Include(x => x.Beneficiary)
                 .Include(x => x.ReportedByUser)
                 .Include(x => x.Branch)
                 .Include(x => x.VerifiedBy)
-                .FirstOrDefault(
-                    x => x.DeathNotificationId == notificationId);
+                .Include(x => x.Storage)
+                .FirstOrDefaultAsync(
+                    x =>
+                        x.DeathNotificationId ==
+                        notificationId,
+                    cancellationToken);
         }
 
-        // =========================================================
-        // GET ALL
-        // =========================================================
-
-        public IEnumerable<DeathNotification> GetAll()
+        public async Task<IReadOnlyList<DeathNotification>>
+            GetAllAsync(
+                CancellationToken cancellationToken = default)
         {
-            return _context.DeathNotifications
+            return await _context.DeathNotifications
+                .AsNoTracking()
                 .Include(x => x.Policy)
                 .Include(x => x.Beneficiary)
                 .Include(x => x.ReportedByUser)
                 .Include(x => x.Branch)
                 .Include(x => x.VerifiedBy)
+                .Include(x => x.Storage)
                 .OrderByDescending(x => x.DateReported)
-                .ToList();
+                .ToListAsync(cancellationToken);
         }
 
-        // =========================================================
-        // GET BY POLICY
-        // =========================================================
-
-        public IEnumerable<DeathNotification> GetByPolicy(
-            string policyId)
-        {
-            if (string.IsNullOrWhiteSpace(policyId))
-            {
-                return Enumerable.Empty<DeathNotification>();
-            }
-
-            return _context.DeathNotifications
-                .Include(x => x.Policy)
-                .Include(x => x.Beneficiary)
-                .Include(x => x.ReportedByUser)
-                .Include(x => x.Branch)
-                .Include(x => x.VerifiedBy)
-                .Where(x => x.PolicyId == policyId)
-                .OrderByDescending(x => x.DateReported)
-                .ToList();
-        }
-
-        // =========================================================
-        // GET BY BRANCH
-        // =========================================================
-
-        public IEnumerable<DeathNotification> GetByBranch(
-            string branchId)
-        {
-            if (string.IsNullOrWhiteSpace(branchId))
-            {
-                return Enumerable.Empty<DeathNotification>();
-            }
-
-            return _context.DeathNotifications
-                .Include(x => x.Policy)
-                .Include(x => x.Beneficiary)
-                .Include(x => x.ReportedByUser)
-                .Include(x => x.Branch)
-                .Include(x => x.VerifiedBy)
-                .Where(x => x.BranchId == branchId)
-                .OrderByDescending(x => x.DateReported)
-                .ToList();
-        }
-
-        // =========================================================
-        // APPROVE
-        // =========================================================
-
-        public void Approve(
-            string notificationId,
-            string verifiedByUserId)
+        public async Task<IReadOnlyList<Storage>>
+            GetAvailableStorageUnitsAsync(
+                string notificationId,
+                CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(notificationId))
             {
@@ -136,368 +72,15 @@ namespace PolicyManagement.Service.MortuaryManagement
                     "Death notification ID is required.",
                     nameof(notificationId));
             }
-
-            if (string.IsNullOrWhiteSpace(verifiedByUserId))
-            {
-                throw new ArgumentException(
-                    "Verified-by user ID is required.",
-                    nameof(verifiedByUserId));
-            }
-
-            // =====================================================
-            // SQL SERVER RETRY STRATEGY
-            // =====================================================
-
-            var strategy =
-                _context.Database.CreateExecutionStrategy();
-
-            strategy.Execute(() =>
-            {
-                using var transaction =
-                    _context.Database.BeginTransaction();
-
-                try
-                {
-                    // =================================================
-                    // GET DEATH NOTIFICATION
-                    // =================================================
-
-                    var notification =
-                        _context.DeathNotifications
-                            .Include(x => x.Beneficiary)
-                            .Include(x => x.Policy)
-                            .Include(x => x.Branch)
-                            .FirstOrDefault(
-                                x =>
-                                    x.DeathNotificationId ==
-                                    notificationId);
-
-                    if (notification == null)
-                    {
-                        throw new KeyNotFoundException(
-                            "Death notification not found.");
-                    }
-
-                    // =================================================
-                    // VALIDATE BENEFICIARY
-                    // =================================================
-
-                    var beneficiary =
-                        notification.Beneficiary;
-
-                    if (beneficiary == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Beneficiary associated with this death notification was not found.");
-                    }
-
-                    // =================================================
-                    // VALIDATE POLICY
-                    // =================================================
-
-                    if (notification.Policy == null)
-                    {
-                        throw new InvalidOperationException(
-                            "Policy associated with this death notification was not found.");
-                    }
-
-                    // =================================================
-                    // VALIDATE BRANCH
-                    // =================================================
-
-                    if (string.IsNullOrWhiteSpace(
-                        notification.BranchId))
-                    {
-                        throw new InvalidOperationException(
-                            "This death notification has no branch assigned.");
-                    }
-
-                    // =================================================
-                    // CHECK NOTIFICATION STATUS
-                    // =================================================
-
-                    var notificationStatus =
-                        notification.Status
-                            .ToString()
-                            .Trim();
-
-                    if (notificationStatus.Equals(
-                        "Approved",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new InvalidOperationException(
-                            "This death notification has already been approved.");
-                    }
-
-                    if (notificationStatus.Equals(
-                        "Rejected",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new InvalidOperationException(
-                            "A rejected death notification cannot be approved.");
-                    }
-
-                    // =================================================
-                    // LOG INFORMATION
-                    // =================================================
-
-                    Console.WriteLine(
-                        "========================================");
-
-                    Console.WriteLine(
-                        "[DeathNotification] APPROVAL START");
-
-                    Console.WriteLine(
-                        $"Notification ID: {notification.DeathNotificationId}");
-
-                    Console.WriteLine(
-                        $"Beneficiary ID: {beneficiary.BeneficiaryId}");
-
-                    Console.WriteLine(
-                        $"Beneficiary Name: {beneficiary.FullName}");
-
-                    Console.WriteLine(
-                        $"Beneficiary ID Number: {beneficiary.IDNumber}");
-
-                    Console.WriteLine(
-                        $"Beneficiary DOB: {beneficiary.DateOfBirth}");
-
-                    Console.WriteLine(
-                        $"Beneficiary Gender: [{beneficiary.Gender}]");
-
-                    Console.WriteLine(
-                        $"Beneficiary Status: {beneficiary.Status}");
-
-                    Console.WriteLine(
-                        "========================================");
-
-                    // =================================================
-                    // GET GENDER
-                    // =================================================
-
-                    string? genderValue = null;
-
-                    if (beneficiary.Gender != null)
-                    {
-                        genderValue =
-                            beneficiary.Gender
-                                .ToString()
-                                .Trim();
-                    }
-
-                    // =================================================
-                    // VALIDATE GENDER
-                    // =================================================
-
-                    if (string.IsNullOrWhiteSpace(genderValue))
-                    {
-                        throw new InvalidOperationException(
-                            "The selected beneficiary has no gender recorded. Please update the beneficiary gender before approving this death notification.");
-                    }
-
-                    // =================================================
-                    // NORMALIZE GENDER
-                    // =================================================
-
-                    if (genderValue.Equals(
-                        "Male",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        genderValue = "Male";
-                    }
-                    else if (genderValue.Equals(
-                        "Female",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        genderValue = "Female";
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException(
-                            $"The beneficiary gender value '{genderValue}' is not valid. Expected Male or Female.");
-                    }
-
-                    // =================================================
-                    // BENEFICIARY STATUS
-                    // =================================================
-
-                    var beneficiaryStatus =
-                        beneficiary.Status
-                            .ToString()
-                            .Trim();
-
-                    if (beneficiaryStatus.Equals(
-                        "Removed",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new InvalidOperationException(
-                            "A removed beneficiary cannot be marked as deceased.");
-                    }
-
-                    // =================================================
-                    // CHECK EXISTING DECEASED RECORD
-                    // =================================================
-
-                    var existingDeceased =
-                        _context.Deceased
-                            .FirstOrDefault(
-                                x =>
-                                    x.BeneficiaryId ==
-                                    beneficiary.BeneficiaryId);
-
-                    // =================================================
-                    // APPROVE NOTIFICATION
-                    // =================================================
-
-                    notification.Approve(
-                        verifiedByUserId);
-
-                    // =================================================
-                    // MARK BENEFICIARY AS DECEASED
-                    //
-                    // If already Deceased, do not call
-                    // MarkAsDeceased() again.
-                    // =================================================
-
-                    if (!beneficiaryStatus.Equals(
-                        "Deceased",
-                        StringComparison.OrdinalIgnoreCase))
-                    {
-                        beneficiary.MarkAsDeceased();
-
-                        Console.WriteLine(
-                            $"Beneficiary {beneficiary.BeneficiaryId} marked as Deceased.");
-                    }
-                    else
-                    {
-                        Console.WriteLine(
-                            $"Beneficiary {beneficiary.BeneficiaryId} was already Deceased.");
-                    }
-
-                    // =================================================
-                    // CREATE DECEASED RECORD ONLY IF IT DOES NOT EXIST
-                    // =================================================
-
-                    if (existingDeceased == null)
-                    {
-                        var deceased =
-                            new Deceased(
-                                beneficiary.FullName,
-                                beneficiary.IDNumber,
-                                beneficiary.DateOfBirth,
-                                notification.DateOfDeath,
-                                genderValue,
-                                notification.PolicyId,
-                                beneficiary.BeneficiaryId,
-                                null
-                            );
-
-                        _context.Deceased.Add(deceased);
-
-                        Console.WriteLine(
-                            $"Created new Deceased record for beneficiary {beneficiary.BeneficiaryId}.");
-                    }
-                    else
-                    {
-                        Console.WriteLine(
-                            $"Deceased record already exists for beneficiary {beneficiary.BeneficiaryId}.");
-
-                        Console.WriteLine(
-                            "Existing Deceased record will NOT be duplicated.");
-                    }
-
-                    // =================================================
-                    // SAVE
-                    // =================================================
-
-                    _context.SaveChanges();
-
-                    // =================================================
-                    // COMMIT
-                    // =================================================
-
-                    transaction.Commit();
-
-                    // =================================================
-                    // SUCCESS
-                    // =================================================
-
-                    Console.WriteLine(
-                        "========================================");
-
-                    Console.WriteLine(
-                        "[DeathNotification] APPROVAL SUCCESS");
-
-                    Console.WriteLine(
-                        $"Notification: {notification.DeathNotificationId}");
-
-                    Console.WriteLine(
-                        $"Beneficiary: {beneficiary.BeneficiaryId}");
-
-                    Console.WriteLine(
-                        $"Gender: {genderValue}");
-
-                    Console.WriteLine(
-                        $"Beneficiary Status: {beneficiary.Status}");
-
-                    Console.WriteLine(
-                        existingDeceased == null
-                            ? "Deceased record CREATED."
-                            : "Existing Deceased record REUSED.");
-
-                    Console.WriteLine(
-                        "========================================");
-                }
-                catch
-                {
-                    transaction.Rollback();
-
-                    throw;
-                }
-            });
-        }
-
-        // =========================================================
-        // REJECT
-        // =========================================================
-
-        public void Reject(
-            string notificationId,
-            string verifiedByUserId,
-            string reason)
-        {
-            if (string.IsNullOrWhiteSpace(notificationId))
-            {
-                throw new ArgumentException(
-                    "Death notification ID is required.",
-                    nameof(notificationId));
-            }
-
-            if (string.IsNullOrWhiteSpace(verifiedByUserId))
-            {
-                throw new ArgumentException(
-                    "Verified-by user ID is required.",
-                    nameof(verifiedByUserId));
-            }
-
-            if (string.IsNullOrWhiteSpace(reason))
-            {
-                throw new ArgumentException(
-                    "A rejection reason is required.",
-                    nameof(reason));
-            }
-
-            // =====================================================
-            // GET NOTIFICATION
-            // =====================================================
 
             var notification =
-                _context.DeathNotifications
-                    .Include(x => x.Beneficiary)
-                    .FirstOrDefault(
+                await _context.DeathNotifications
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
                         x =>
                             x.DeathNotificationId ==
-                            notificationId);
+                            notificationId,
+                        cancellationToken);
 
             if (notification == null)
             {
@@ -505,69 +88,467 @@ namespace PolicyManagement.Service.MortuaryManagement
                     "Death notification not found.");
             }
 
-            // =====================================================
-            // CHECK STATUS
-            // =====================================================
-
-            var status =
-                notification.Status
-                    .ToString()
-                    .Trim();
-
-            if (status.Equals(
-                "Approved",
-                StringComparison.OrdinalIgnoreCase))
+            if (notification.Status !=
+                DeathNotificationStatus.Pending)
             {
                 throw new InvalidOperationException(
-                    "An approved death notification cannot be rejected.");
+                    "Storage can only be selected for a pending death notification.");
             }
 
-            if (status.Equals(
-                "Rejected",
-                StringComparison.OrdinalIgnoreCase))
+            return await _context.StorageUnit
+                .AsNoTracking()
+                .Where(
+                    x =>
+                        x.BranchId ==
+                        notification.BranchId &&
+                        (
+                            x.IsAvailable ||
+                            x.StorageId ==
+                            notification.StorageId
+                        ))
+                .OrderBy(x => x.UnitNumber)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task UpdateBodyLocationAsync(
+            string notificationId,
+            UpdateBodyLocationRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(notificationId))
+            {
+                throw new ArgumentException(
+                    "Death notification ID is required.",
+                    nameof(notificationId));
+            }
+
+            ArgumentNullException.ThrowIfNull(request);
+
+            var strategy =
+                _context.Database.CreateExecutionStrategy();
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction =
+                    await _context.Database
+                        .BeginTransactionAsync(
+                            IsolationLevel.Serializable,
+                            cancellationToken);
+
+                try
+                {
+                    var notification =
+                        await _context.DeathNotifications
+                            .Include(x => x.Branch)
+                            .FirstOrDefaultAsync(
+                                x =>
+                                    x.DeathNotificationId ==
+                                    notificationId,
+                                cancellationToken);
+
+                    if (notification == null)
+                    {
+                        throw new KeyNotFoundException(
+                            "Death notification not found.");
+                    }
+
+                    if (notification.Status !=
+                        DeathNotificationStatus.Pending)
+                    {
+                        throw new InvalidOperationException(
+                            "Only pending death notifications can have their body location updated.");
+                    }
+
+                    var normalizedLocation =
+                        BodyLocationTypes.Normalize(
+                            request.BodyLocationType);
+
+                    var oldStorageId =
+                        notification.StorageId;
+
+                    Storage? oldStorage = null;
+
+                    if (!string.IsNullOrWhiteSpace(
+                            oldStorageId))
+                    {
+                        oldStorage =
+                            await _context.StorageUnit
+                                .FirstOrDefaultAsync(
+                                    x =>
+                                        x.StorageId ==
+                                        oldStorageId,
+                                    cancellationToken);
+                    }
+
+                    var storageChanged =
+                        !string.Equals(
+                            oldStorageId,
+                            request.StorageId,
+                            StringComparison.OrdinalIgnoreCase);
+
+                    var leavingLegacyCare =
+                        normalizedLocation !=
+                        BodyLocationTypes.LegacyCareMortuary;
+
+                    if (oldStorage != null &&
+                        (storageChanged ||
+                         leavingLegacyCare))
+                    {
+                        oldStorage.MarkAvailable();
+                        notification.ClearStorageReservation();
+                    }
+
+                   notification.SetBodyLocation(
+    normalizedLocation,
+    request.BodyLocationAddress,
+    request.MortuaryName,
+    request.CollectionDate,
+    request.CollectionNotes);
+
+                    if (normalizedLocation ==
+                        BodyLocationTypes.LegacyCareMortuary)
+                    {
+                        if (string.IsNullOrWhiteSpace(
+                                request.StorageId))
+                        {
+                            throw new ArgumentException(
+                                "Please select an available storage unit.");
+                        }
+
+                        var selectedStorage =
+                            await _context.StorageUnit
+                                .FirstOrDefaultAsync(
+                                    x =>
+                                        x.StorageId ==
+                                            request.StorageId &&
+                                        x.BranchId ==
+                                            notification.BranchId,
+                                    cancellationToken);
+
+                        if (selectedStorage == null)
+                        {
+                            throw new ArgumentException(
+                                "The selected storage unit does not exist at this branch.");
+                        }
+
+                        var retainingExistingUnit =
+                            string.Equals(
+                                oldStorageId,
+                                selectedStorage.StorageId,
+                                StringComparison.OrdinalIgnoreCase);
+
+                        if (!selectedStorage.IsAvailable &&
+                            !retainingExistingUnit)
+                        {
+                            throw new InvalidOperationException(
+                                "The selected storage unit is no longer available. Please select another unit.");
+                        }
+
+                        selectedStorage.MarkUnavailable();
+
+                        notification.ReserveStorage(
+                            selectedStorage);
+
+                        if (string.IsNullOrWhiteSpace(
+                                request.MortuaryName) &&
+                            notification.Branch != null)
+                        {
+                           notification.SetBodyLocation(
+    BodyLocationTypes.LegacyCareMortuary,
+    request.BodyLocationAddress,
+    string.IsNullOrWhiteSpace(request.MortuaryName)
+        ? notification.Branch?.BranchName
+        : request.MortuaryName,
+    request.CollectionDate,
+    request.CollectionNotes);
+
+notification.ReserveStorage(selectedStorage);
+                            notification.ReserveStorage(
+                                selectedStorage);
+                        }
+                    }
+
+                    await _context.SaveChangesAsync(
+                        cancellationToken);
+
+                    await transaction.CommitAsync(
+                        cancellationToken);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(
+                        cancellationToken);
+
+                    throw;
+                }
+            });
+        }
+
+       public async Task ApproveAsync(
+    string notificationId,
+    string verifiedByUserId,
+    CancellationToken cancellationToken = default)
+{
+    if (string.IsNullOrWhiteSpace(notificationId))
+    {
+        throw new ArgumentException(
+            "Death notification ID is required.",
+            nameof(notificationId));
+    }
+
+    if (string.IsNullOrWhiteSpace(verifiedByUserId))
+    {
+        throw new ArgumentException(
+            "Verified-by user ID is required.",
+            nameof(verifiedByUserId));
+    }
+
+    var strategy =
+        _context.Database.CreateExecutionStrategy();
+
+    await strategy.ExecuteAsync(async () =>
+    {
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        try
+        {
+            var notification =
+                await _context.DeathNotifications
+                    .Include(x => x.Beneficiary)
+                    .Include(x => x.Policy)
+                    .FirstOrDefaultAsync(
+                        x =>
+                            x.DeathNotificationId ==
+                            notificationId,
+                        cancellationToken);
+
+            if (notification == null)
+            {
+                throw new KeyNotFoundException(
+                    "Death notification not found.");
+            }
+
+            if (notification.Beneficiary == null)
             {
                 throw new InvalidOperationException(
-                    "This death notification has already been rejected.");
+                    "The beneficiary associated with this notification was not found.");
             }
 
-            // =====================================================
-            // REJECT
-            // =====================================================
+            if (notification.Policy == null)
+            {
+                throw new InvalidOperationException(
+                    "The policy associated with this notification was not found.");
+            }
 
+            if (string.IsNullOrWhiteSpace(
+                notification.BranchId))
+            {
+                throw new InvalidOperationException(
+                    "This death notification has no branch assigned.");
+            }
+
+            var beneficiary =
+                notification.Beneficiary;
+
+            if (beneficiary.Status ==
+                BeneficiaryStatus.Removed)
+            {
+                throw new InvalidOperationException(
+                    "A removed beneficiary cannot be marked as deceased.");
+            }
+
+            var gender =
+                NormalizeGender(
+                    beneficiary.Gender);
+
+            // DeathNotification: Pending -> Approved
+            notification.Approve(
+                verifiedByUserId);
+
+            // Keep the linked ServiceRequest synchronized.
+            var serviceRequest =
+                await _context.ServiceRequests
+                    .FirstOrDefaultAsync(
+                        x =>
+                            x.DeathNotificationId ==
+                            notificationId,
+                        cancellationToken);
+
+            if (serviceRequest != null)
+            {
+                serviceRequest.Status =
+                    "Approved";
+
+                serviceRequest.UpdatedDate =
+                    DateTime.UtcNow;
+            }
+
+            if (beneficiary.Status !=
+                BeneficiaryStatus.Deceased)
+            {
+                beneficiary.MarkAsDeceased();
+            }
+
+            var existingDeceased =
+                await _context.Deceased
+                    .FirstOrDefaultAsync(
+                        x =>
+                            x.BeneficiaryId ==
+                            beneficiary.BeneficiaryId,
+                        cancellationToken);
+
+            if (existingDeceased == null)
+            {
+                var deceased =
+                    new Deceased(
+                        beneficiary.FullName,
+                        beneficiary.IDNumber,
+                        beneficiary.DateOfBirth,
+                        notification.DateOfDeath,
+                        gender,
+                        notification.PolicyId,
+                        beneficiary.BeneficiaryId,
+                        null);
+
+                _context.Deceased.Add(
+                    deceased);
+            }
+
+            await _context.SaveChangesAsync(
+                cancellationToken);
+
+            await transaction.CommitAsync(
+                cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(
+                cancellationToken);
+
+            throw;
+        }
+    });
+}
+
+
+public async Task RejectAsync(
+    string notificationId,
+    string verifiedByUserId,
+    string reason,
+    CancellationToken cancellationToken = default)
+{
+    if (string.IsNullOrWhiteSpace(notificationId))
+    {
+        throw new ArgumentException(
+            "Death notification ID is required.",
+            nameof(notificationId));
+    }
+
+    if (string.IsNullOrWhiteSpace(verifiedByUserId))
+    {
+        throw new ArgumentException(
+            "Verified-by user ID is required.",
+            nameof(verifiedByUserId));
+    }
+
+    if (string.IsNullOrWhiteSpace(reason))
+    {
+        throw new ArgumentException(
+            "A rejection reason is required.",
+            nameof(reason));
+    }
+
+    var strategy =
+        _context.Database.CreateExecutionStrategy();
+
+    await strategy.ExecuteAsync(async () =>
+    {
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        try
+        {
+            var notification =
+                await _context.DeathNotifications
+                    .FirstOrDefaultAsync(
+                        x =>
+                            x.DeathNotificationId ==
+                            notificationId,
+                        cancellationToken);
+
+            if (notification == null)
+            {
+                throw new KeyNotFoundException(
+                    "Death notification not found.");
+            }
+
+            // DeathNotification: Pending -> Rejected
             notification.Reject(
                 verifiedByUserId,
                 reason);
 
-            // =====================================================
-            // IMPORTANT
-            //
-            // Rejection DOES NOT:
-            //
-            // - Mark beneficiary as Deceased
-            // - Create Deceased record
-            //
-            // Beneficiary remains unchanged.
-            // =====================================================
+            // Keep ServiceRequest synchronized.
+            var serviceRequest =
+                await _context.ServiceRequests
+                    .FirstOrDefaultAsync(
+                        x =>
+                            x.DeathNotificationId ==
+                            notificationId,
+                        cancellationToken);
 
-            _context.SaveChanges();
+            if (serviceRequest != null)
+            {
+                serviceRequest.Status =
+                    "Rejected";
 
-            Console.WriteLine(
-                "========================================");
+                serviceRequest.UpdatedDate =
+                    DateTime.UtcNow;
+            }
 
-            Console.WriteLine(
-                "[DeathNotification] REJECTION SUCCESS");
+            await _context.SaveChangesAsync(
+                cancellationToken);
 
-            Console.WriteLine(
-                $"Notification: {notification.DeathNotificationId}");
+            await transaction.CommitAsync(
+                cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(
+                cancellationToken);
 
-            Console.WriteLine(
-                $"Beneficiary: {notification.BeneficiaryId}");
+            throw;
+        }
+    });
+}
 
-            Console.WriteLine(
-                "Beneficiary was NOT changed.");
+        private static string NormalizeGender(
+            string gender)
+        {
+            if (string.IsNullOrWhiteSpace(gender))
+            {
+                throw new InvalidOperationException(
+                    "The beneficiary has no gender recorded.");
+            }
 
-            Console.WriteLine(
-                "========================================");
+            if (gender.Equals(
+                    "Male",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return "Male";
+            }
+
+            if (gender.Equals(
+                    "Female",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return "Female";
+            }
+
+            throw new InvalidOperationException(
+                $"The beneficiary gender value '{gender}' is invalid. Expected Male or Female.");
         }
     }
 }

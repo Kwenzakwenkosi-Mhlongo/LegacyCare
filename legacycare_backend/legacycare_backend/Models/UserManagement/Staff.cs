@@ -1,3 +1,8 @@
+
+// ============================================================
+// FILE: Models/UserManagement/Staff.cs
+// ============================================================
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using PolicyManagement.Enums;
@@ -11,6 +16,7 @@ namespace PolicyManagement.Models.UserManagement
 
         [Required]
         public StaffType StaffRole { get; set; }
+
         [Required]
         public DateTime HireDate { get; set; }
 
@@ -19,26 +25,29 @@ namespace PolicyManagement.Models.UserManagement
 
         public bool IsCovered { get; set; }
 
-        // Foreign Key
-        public required string UserId { get; set; }
+        [Required]
+        public string UserId { get; set; } = string.Empty;
 
-        public string BranchId { get; set; } = 1.ToString();
+        [Required]
+        public string BranchId { get; set; } = string.Empty;
 
         [ForeignKey(nameof(UserId))]
         public User User { get; set; } = null!;
 
-        //Display StaffID in form "ST + Number"
-        [NotMapped]// Means "DO NOT CREATE A DB COLUMN FOR THIS PROPERTY"
-        public string DisplayStaffId {
-            get
-            {
-                return int.TryParse(StaffId, out int id) 
-                ?  $"ST{id:D3}"
-                : StaffId ?? "";
-            }
-        }
-
         [ForeignKey(nameof(BranchId))]
         public Branch Branch { get; set; } = null!;
+
+        [NotMapped]
+        public string DisplayStaffId
+        {
+            get
+            {
+                return int.TryParse(
+                    StaffId,
+                    out var id)
+                    ? $"ST{id:D3}"
+                    : StaffId;
+            }
+        }
     }
 }

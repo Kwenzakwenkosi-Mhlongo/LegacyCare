@@ -24,6 +24,6 @@ namespace PolicyManagement.Models.MortuaryManagement
         [Required]
         public string DeployedByUserId { get; set; } = string.Empty;
 
-        public DateTime DeployedDate { get; set; } = DateTime.Now;
+        public DateTime DeployedDate { get; set; } = DateTime.UtcNow;
     }
 }

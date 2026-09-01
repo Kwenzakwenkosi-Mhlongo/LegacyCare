@@ -1,3 +1,5 @@
+// Models/MortuaryManagement/FuneralRequest.cs
+
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using PolicyManagement.Models.UserManagement;
@@ -42,15 +44,11 @@ namespace PolicyManagement.Models.MortuaryManagement
         public virtual Branch? Branch { get; set; }
 
         // ============================================================
-        // FUNERAL DATE
+        // FUNERAL DATE / TIME
         // ============================================================
 
         [Required]
         public DateTime FuneralDate { get; set; }
-
-        // ============================================================
-        // FUNERAL TIME
-        // ============================================================
 
         [Required]
         public TimeSpan FuneralTime { get; set; }
@@ -83,7 +81,9 @@ namespace PolicyManagement.Models.MortuaryManagement
         // ============================================================
 
         [Required]
-        public string Status { get; set; } = "Pending";
+        [MaxLength(50)]
+        public string Status { get; set; }
+            = "Pending";
 
         // ============================================================
         // REJECTION
@@ -93,17 +93,15 @@ namespace PolicyManagement.Models.MortuaryManagement
 
         // ============================================================
         // STAFF REQUIRED
-        // ============================================================
         //
-        // Client does NOT control this.
-        //
-        // Clerk decides how many operational staff are required.
-        //
-        // Default is 5.
+        // LegacyCare requires exactly 4 operational staff members
+        // per funeral. The client does not control this value.
+        // The clerk selects the actual staff members from the
+        // funeral's assigned branch.
         // ============================================================
 
         [Required]
-        public int StaffRequired { get; set; } = 5;
+        public int StaffRequired { get; set; } = 4;
 
         // ============================================================
         // APPROVAL
@@ -118,10 +116,10 @@ namespace PolicyManagement.Models.MortuaryManagement
         // ============================================================
 
         public DateTime CreatedDate { get; set; }
-            = DateTime.Now;
+            = DateTime.UtcNow;
 
         public DateTime UpdatedDate { get; set; }
-            = DateTime.Now;
+            = DateTime.UtcNow;
 
         // ============================================================
         // STAFF DEPLOYMENTS

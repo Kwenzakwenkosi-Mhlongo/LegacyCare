@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PolicyManagement.Data;
 
@@ -11,9 +12,11 @@ using PolicyManagement.Data;
 namespace PolicyManagement.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831231234_AddDeathNotificationStorageReservation")]
+    partial class AddDeathNotificationStorageReservation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -752,9 +755,6 @@ namespace PolicyManagement.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("DeathNotificationId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
@@ -784,8 +784,6 @@ namespace PolicyManagement.Migrations
                     b.HasIndex("BranchId");
 
                     b.HasIndex("ClientId");
-
-                    b.HasIndex("DeathNotificationId");
 
                     b.HasIndex("FuneralRequestId");
 
@@ -1293,11 +1291,6 @@ namespace PolicyManagement.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("PolicyManagement.Models.MortuaryManagement.DeathNotification", "DeathNotification")
-                        .WithMany()
-                        .HasForeignKey("DeathNotificationId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("PolicyManagement.Models.MortuaryManagement.FuneralRequest", "FuneralRequest")
                         .WithMany()
                         .HasForeignKey("FuneralRequestId");
@@ -1305,8 +1298,6 @@ namespace PolicyManagement.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Client");
-
-                    b.Navigation("DeathNotification");
 
                     b.Navigation("FuneralRequest");
                 });
