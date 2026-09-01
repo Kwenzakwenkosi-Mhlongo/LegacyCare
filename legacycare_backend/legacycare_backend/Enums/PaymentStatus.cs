@@ -2,8 +2,8 @@ namespace PolicyManagement.Enums
 {
     public enum PaymentStatus
     {
-        PENDING,
-        SUCCESSFUL,
-        FAILED
+        PENDING = 0,
+        SUCCESSFUL = 1,
+        FAILED = 2
     }
 }

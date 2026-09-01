@@ -1,3 +1,8 @@
+// ============================================================
+// File: Controllers/PackageController.cs
+// ============================================================
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolicyManagement.Models;
 using PolicyManagement.Service.PackageManagement;
@@ -6,29 +11,35 @@ namespace PolicyManagement.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class PackageController : ControllerBase
     {
         private readonly IPackageService _packageService;
 
-        public PackageController(IPackageService packageService)
+        public PackageController(
+            IPackageService packageService)
         {
             _packageService = packageService;
         }
 
-        // GET: api/Package
         [HttpGet]
+        [Authorize(Roles = "Client,Admin,Staff,Clerk")]
         public IActionResult GetAllPackages()
         {
-            return Ok(_packageService.GetAllPackages());
+            return Ok(
+                _packageService.GetAllPackages());
         }
 
-        // GET: api/Package/{packageId}
         [HttpGet("{packageId}")]
-        public IActionResult GetPackageById(string packageId)
+        [Authorize(Roles = "Client,Admin,Staff,Clerk")]
+        public IActionResult GetPackageById(
+            string packageId)
         {
             try
             {
-                return Ok(_packageService.GetPackageById(packageId));
+                return Ok(
+                    _packageService.GetPackageById(
+                        packageId));
             }
             catch (KeyNotFoundException ex)
             {
@@ -36,32 +47,52 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        // POST: api/Package
         [HttpPost]
-        public IActionResult CreatePackage([FromBody] Package package)
+        [Authorize(Roles = "Admin")]
+        public IActionResult CreatePackage(
+            [FromBody] Package package)
         {
             try
             {
-                var createdPackage = _packageService.CreatePackage(package);
+                var createdPackage =
+                    _packageService.CreatePackage(
+                        package);
 
                 return CreatedAtAction(
                     nameof(GetPackageById),
-                    new { packageId = createdPackage.PackageId },
+                    new
+                    {
+                        packageId =
+                            createdPackage.PackageId
+                    },
                     createdPackage);
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ex.Message);
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
-        // PUT: api/Package/{packageId}
         [HttpPut("{packageId}")]
-        public IActionResult UpdatePackage(string packageId, [FromBody] Package package)
+        [Authorize(Roles = "Admin")]
+        public IActionResult UpdatePackage(
+            string packageId,
+            [FromBody] Package package)
         {
             try
             {
-                return Ok(_packageService.UpdatePackage(packageId, package));
+                return Ok(
+                    _packageService.UpdatePackage(
+                        packageId,
+                        package));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
@@ -69,14 +100,21 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        // DELETE: api/Package/{packageId}
         [HttpDelete("{packageId}")]
-        public IActionResult DeletePackage(string packageId)
+        [Authorize(Roles = "Admin")]
+        public IActionResult DeletePackage(
+            string packageId)
         {
             try
             {
-                _packageService.DeletePackage(packageId);
+                _packageService.DeletePackage(
+                    packageId);
+
                 return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
@@ -85,3 +123,4 @@ namespace PolicyManagement.Controllers
         }
     }
 }
+

@@ -1,3 +1,5 @@
+// File: Service/DashboardManagement/DashboardService.cs
+
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Data;
 using PolicyManagement.DTOs.Responses;
@@ -13,16 +15,8 @@ namespace PolicyManagement.Service.DashboardManagement
             _context = context;
         }
 
-        // =====================================================
-        // ADMIN DASHBOARD
-        // =====================================================
-
         public AdminDashboardResponse GetDashboardData()
         {
-            // =========================
-            // CLIENTS
-            // =========================
-
             var totalClients = _context.Client.Count();
 
             var activeClients = _context.Client
@@ -30,11 +24,6 @@ namespace PolicyManagement.Service.DashboardManagement
 
             var inactiveClients = _context.Client
                 .Count(c => !c.User.IsActive);
-
-
-            // =========================
-            // STAFF
-            // =========================
 
             var totalStaff = _context.Staff.Count();
 
@@ -44,11 +33,6 @@ namespace PolicyManagement.Service.DashboardManagement
             var inactiveStaff = _context.Staff
                 .Count(s => !s.User.IsActive);
 
-
-            // =========================
-            // BRANCHES
-            // =========================
-
             var totalBranches = _context.Branch.Count();
 
             var activeBranches = _context.Branch
@@ -56,11 +40,6 @@ namespace PolicyManagement.Service.DashboardManagement
 
             var inactiveBranches = _context.Branch
                 .Count(b => !b.IsActive);
-
-
-            // =========================
-            // POLICIES
-            // =========================
 
             var totalPolicies = _context.Policy.Count();
 
@@ -79,38 +58,22 @@ namespace PolicyManagement.Service.DashboardManagement
             var inactivePolicies =
                 expiredPolicies + cancelledPolicies;
 
-
-            // =========================
-            // REVENUE
-            // =========================
-
             var successfulPayments = _context.Payment
-                .Where(p => p.Status.ToString() == "SUCCESSFUL");
+                .Where(p =>
+                    p.Status.ToString() == "SUCCESSFUL" &&
+                    p.PaymentDate.HasValue);
 
             var totalRevenue = successfulPayments
                 .Sum(p => (decimal?)p.Amount) ?? 0m;
 
-
-            // =========================
-            // LOSS
-            // =========================
-
-            // There is currently no loss/expense
-            // calculation in the Payment model.
-
             decimal totalLoss = 0m;
-
-
-            // =========================
-            // REVENUE BY MONTH
-            // =========================
 
             var revenue = successfulPayments
                 .AsEnumerable()
                 .GroupBy(p => new
                 {
-                    p.PaymentDate.Year,
-                    p.PaymentDate.Month
+                    Year = p.PaymentDate!.Value.Year,
+                    Month = p.PaymentDate.Value.Month
                 })
                 .OrderBy(g => g.Key.Year)
                 .ThenBy(g => g.Key.Month)
@@ -126,30 +89,15 @@ namespace PolicyManagement.Service.DashboardManagement
                 })
                 .ToList();
 
-
-            // =========================
-            // POLICY STATUS
-            // =========================
-
             var policyStatus = new PolicyStatusData
             {
                 TotalPolicies = totalPolicies,
-
                 ActivePolicies = activePolicies,
-
                 InactivePolicies = inactivePolicies,
-
                 Pending = pendingPolicies,
-
                 Expired = expiredPolicies,
-
                 Cancelled = cancelledPolicies
             };
-
-
-            // =========================
-            // STAFF BY ROLE
-            // =========================
 
             var staffByRole = _context.Staff
                 .AsEnumerable()
@@ -162,11 +110,6 @@ namespace PolicyManagement.Service.DashboardManagement
                 })
                 .ToList();
 
-
-            // =========================
-            // TASK STATUS
-            // =========================
-
             var taskStatus = _context.Task
                 .AsEnumerable()
                 .GroupBy(t => t.Status.ToString())
@@ -178,11 +121,6 @@ namespace PolicyManagement.Service.DashboardManagement
                 })
                 .ToList();
 
-
-            // =========================
-            // MORTUARY
-            // =========================
-
             var totalStorage = _context.StorageUnit.Count();
 
             var availableStorage = _context.StorageUnit
@@ -191,18 +129,12 @@ namespace PolicyManagement.Service.DashboardManagement
             var occupiedStorage = _context.StorageUnit
                 .Count(s => !s.IsAvailable);
 
-
             var mortuary = new MortuaryData
             {
                 TotalStorage = totalStorage,
                 Occupied = occupiedStorage,
                 Available = availableStorage
             };
-
-
-            // =========================
-            // RECENT POLICIES
-            // =========================
 
             var recentPolicies = _context.Policy
                 .AsEnumerable()
@@ -215,26 +147,20 @@ namespace PolicyManagement.Service.DashboardManagement
                 })
                 .ToList();
 
-
-            // =========================
-            // RECENT PAYMENTS
-            // =========================
-
             var recentPayments = _context.Payment
+                .Where(p =>
+                    p.Status.ToString() == "SUCCESSFUL" &&
+                    p.PaymentDate.HasValue)
                 .AsEnumerable()
                 .OrderByDescending(p => p.PaymentDate)
                 .Take(5)
                 .Select(p => new RecentActivityData
                 {
                     Activity = "Payment received",
-                    Date = p.PaymentDate.ToString("yyyy-MM-dd HH:mm")
+                    Date = p.PaymentDate!.Value.ToString(
+                        "yyyy-MM-dd HH:mm")
                 })
                 .ToList();
-
-
-            // =========================
-            // RECENT TASKS
-            // =========================
 
             var recentTasks = _context.Task
                 .AsEnumerable()
@@ -247,11 +173,6 @@ namespace PolicyManagement.Service.DashboardManagement
                 })
                 .ToList();
 
-
-            // =========================
-            // COMBINE ACTIVITY
-            // =========================
-
             var recentActivity = recentPolicies
                 .Concat(recentPayments)
                 .Concat(recentTasks)
@@ -259,76 +180,46 @@ namespace PolicyManagement.Service.DashboardManagement
                 .Take(10)
                 .ToList();
 
-
-            // =========================
-            // RETURN ADMIN DASHBOARD
-            // =========================
-
             return new AdminDashboardResponse
             {
-                // Clients
                 TotalClients = totalClients,
                 ActiveClients = activeClients,
                 InactiveClients = inactiveClients,
 
-                // Staff
                 TotalStaff = totalStaff,
                 ActiveStaff = activeStaff,
                 InactiveStaff = inactiveStaff,
 
-                // Branches
                 TotalBranches = totalBranches,
                 ActiveBranches = activeBranches,
                 InactiveBranches = inactiveBranches,
 
-                // Revenue
                 TotalRevenue = totalRevenue,
                 TotalLoss = totalLoss,
 
-                // Charts
                 Revenue = revenue,
-
                 PolicyStatus = policyStatus,
-
                 StaffByRole = staffByRole,
-
                 TaskStatus = taskStatus,
 
-                // Mortuary
                 Mortuary = mortuary,
 
-                // Activity
                 RecentActivity = recentActivity
             };
         }
-
-
-        // =====================================================
-        // PROFILE DASHBOARD STATS
-        // =====================================================
 
         public DashboardStatsResponse GetDashboardStats()
         {
             return new DashboardStatsResponse
             {
                 TotalClients = _context.Client.Count(),
-
                 TotalStaff = _context.Staff.Count(),
-
                 TotalEvents = _context.Event.Count(),
-
                 TotalTasks = _context.Task.Count(),
-
                 TotalPolicies = _context.Policy.Count(),
-
                 TotalPayments = _context.Payment.Count()
             };
         }
-
-
-        // =====================================================
-        // TOTAL CLIENTS
-        // =====================================================
 
         public int GetTotalClients()
         {

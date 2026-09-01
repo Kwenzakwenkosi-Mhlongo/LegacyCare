@@ -1,10 +1,9 @@
-
 namespace PolicyManagement.Enums
 {
     public enum RequestType
     {
-        Add,
-        Remove,
-        Update
+        Add = 0,
+        Remove = 1,
+        Update = 2
     }
 }

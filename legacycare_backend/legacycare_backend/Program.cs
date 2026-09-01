@@ -21,6 +21,7 @@ using PolicyManagement.Services.ScheduleManagement;
 using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json.Serialization;
+using PolicyManagement.Service.DocumentManagement;
 
 Environment.SetEnvironmentVariable(
     "DOTNET_USE_POLLING_FILE_WATCHER",
@@ -321,6 +322,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     IStorageService,
     StorageService>();
+
+    builder.Services.AddScoped<
+    IDocumentService,
+    DocumentService>();
 
 builder.Services.AddScoped<
     IDeceasedService,

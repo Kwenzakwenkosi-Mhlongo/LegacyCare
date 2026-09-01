@@ -1,13 +1,12 @@
 // ============================================================
-// File: Enums/BeneficiaryStatus.cs
+// File: Enums/RequestPriority.cs
 // ============================================================
 
 namespace PolicyManagement.Enums
 {
-    public enum BeneficiaryStatus
+    public enum RequestPriority
     {
-        Alive = 0,
-        Removed = 1,
-        Deceased = 2
+        Normal = 0,
+        High = 1
     }
 }

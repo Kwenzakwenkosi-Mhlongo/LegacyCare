@@ -1,3 +1,7 @@
+// ============================================================
+// File: Service/ServiceRequestManagement/IServiceRequestService.cs
+// ============================================================
+
 using PolicyManagement.DTOs.Requests;
 using PolicyManagement.Models;
 
@@ -24,6 +28,11 @@ namespace PolicyManagement.Service.ServiceRequestManagement
             int id,
             string clientId,
             UpdateServiceRequestDto request
+        );
+
+        ServiceRequest Review(
+            int id,
+            ReviewServiceRequestRequest request
         );
 
         void Delete(

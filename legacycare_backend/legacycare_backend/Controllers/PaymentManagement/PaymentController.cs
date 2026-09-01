@@ -1,3 +1,7 @@
+// ============================================================
+// File: Controllers/PaymentController.cs
+// ============================================================
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolicyManagement.DTOs.Requests;
@@ -7,68 +11,21 @@ namespace PolicyManagement.Controllers
 {
     [Route("api/[controller]")]
     [Authorize]
-    public class PaymentController : BaseController
+    public class PaymentController(
+        IPaymentService paymentService) : BaseController
     {
-        private readonly IPaymentService _paymentService;
-
-        public PaymentController(IPaymentService paymentService)
-        {
-            _paymentService = paymentService;
-        }
-
-        [Authorize(Roles = "Client")]
-        [HttpPost("make-payment")]
-        public IActionResult MakePayment([FromBody] MakePaymentRequest request)
-        {
-            try
-            {
-                var payment = _paymentService.MakePayment(UserId, request);
-
-                return CreatedAtAction(
-                    nameof(GetPaymentById),
-                    new { paymentId = payment.PaymentId },
-                    payment);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpPost("{paymentId}/confirm")]
-        [Authorize(Roles = "Client")]
-        public IActionResult ConfirmPayment(string paymentId, [FromBody] ConfirmPaymentRequest request)
-        {
-            try
-            {
-                var payment = _paymentService.ConfirmPayment(paymentId, UserId, request.Method);
-                return Ok(payment);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+        private readonly IPaymentService _paymentService = paymentService;
 
         [HttpGet]
         [Authorize(Roles = "Client")]
-        public IActionResult GetAllPayments()
+        public IActionResult GetClientPayments()
         {
             try
             {
-                var payments = _paymentService.GetAllPayments();
+                var payments =
+                    _paymentService.GetPaymentsByUser(
+                        UserId);
+
                 return Ok(payments);
             }
             catch (Exception ex)
@@ -83,7 +40,10 @@ namespace PolicyManagement.Controllers
         {
             try
             {
-                var payments = _paymentService.GetPaymentHistory(UserId);
+                var payments =
+                    _paymentService.GetPaymentHistory(
+                        UserId);
+
                 return Ok(payments);
             }
             catch (Exception ex)
@@ -92,13 +52,16 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        [HttpGet("admin/all")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GetAllPaymentsForAdmin()
+        [HttpGet("outstanding")]
+        [Authorize(Roles = "Client")]
+        public IActionResult GetOutstandingPayments()
         {
             try
             {
-                var payments = _paymentService.GetAllPayments();
+                var payments =
+                    _paymentService.GetOutstandingPayments(
+                        UserId);
+
                 return Ok(payments);
             }
             catch (Exception ex)
@@ -107,14 +70,19 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        [HttpGet("{paymentId}")]
-        [Authorize(Roles = "Admin,Client")]
-        public IActionResult GetPaymentById(string paymentId)
+        [HttpGet("policy/{policyId}")]
+        [Authorize(Roles = "Client")]
+        public IActionResult GetPaymentsByPolicy(
+            string policyId)
         {
             try
             {
-                var payment = _paymentService.GetPaymentById(paymentId, UserId);
-                return Ok(payment);
+                var payments =
+                    _paymentService.GetPaymentsByPolicy(
+                        UserId,
+                        policyId);
+
+                return Ok(payments);
             }
             catch (KeyNotFoundException ex)
             {
@@ -126,31 +94,25 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        [HttpGet("outstanding")]
-        [Authorize(Roles = "Admin,Client")]
-        public IActionResult GetOutstandingPayments()
-        {
-            try
-            {
-                var payments = _paymentService.GetOutstandingPayments(UserId);
-                return Ok(payments);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        [HttpPost("policy/{policyId}/monthly")]
+        [HttpPost("make-payment")]
         [Authorize(Roles = "Client")]
-        public IActionResult CreateMonthlyPayment(string policyId)
+        public IActionResult MakePayment(
+            [FromBody] MakePaymentRequest request)
         {
             try
             {
-                var payment = _paymentService.CreateMonthlyPayment(policyId, UserId);
+                var payment =
+                    _paymentService.MakePayment(
+                        UserId,
+                        request);
+
                 return CreatedAtAction(
                     nameof(GetPaymentById),
-                    new { paymentId = payment.PaymentId },
+                    new
+                    {
+                        paymentId =
+                            payment.PaymentId
+                    },
                     payment);
             }
             catch (KeyNotFoundException ex)
@@ -167,14 +129,64 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        [HttpPost("admin/generate-monthly")]
-        [Authorize(Roles = "Admin")]
-        public IActionResult GenerateMonthlyPayments()
+        [HttpPost("{paymentId}/confirm")]
+        [Authorize(Roles = "Client")]
+        public IActionResult ConfirmPayment(
+            string paymentId,
+            [FromBody] ConfirmPaymentRequest request)
         {
             try
             {
-                _paymentService.GenerateMonthlyPaymentsForAllPolicies();
-                return Ok(new { message = "Monthly payments generated successfully." });
+                var payment =
+                    _paymentService.ConfirmPayment(
+                        paymentId,
+                        UserId,
+                        request.Method);
+
+                return Ok(payment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("policy/{policyId}/monthly")]
+        [Authorize(Roles = "Client")]
+        public IActionResult CreateMonthlyPayment(
+            string policyId)
+        {
+            try
+            {
+                var payment =
+                    _paymentService.CreateMonthlyPayment(
+                        policyId,
+                        UserId);
+
+                return CreatedAtAction(
+                    nameof(GetPaymentById),
+                    new
+                    {
+                        paymentId =
+                            payment.PaymentId
+                    },
+                    payment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -183,13 +195,81 @@ namespace PolicyManagement.Controllers
         }
 
         [HttpGet("search")]
-        [Authorize(Roles = "Admin,Client")]
-        public IActionResult SearchPayments([FromQuery] string keyword)
+        [Authorize(Roles = "Client")]
+        public IActionResult SearchPayments(
+            [FromQuery] string keyword)
         {
             try
             {
-                var payments = _paymentService.SearchPayments(UserId, keyword);
+                var payments =
+                    _paymentService.SearchPayments(
+                        UserId,
+                        keyword);
+
                 return Ok(payments);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("{paymentId}")]
+        [Authorize(Roles = "Client")]
+        public IActionResult GetPaymentById(
+            string paymentId)
+        {
+            try
+            {
+                var payment =
+                    _paymentService.GetPaymentById(
+                        paymentId,
+                        UserId);
+
+                return Ok(payment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("admin/all")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult GetAllPaymentsForAdmin()
+        {
+            try
+            {
+                var payments =
+                    _paymentService.GetAllPayments();
+
+                return Ok(payments);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("admin/generate-monthly")]
+        [Authorize(Roles = "Admin")]
+        public IActionResult GenerateMonthlyPayments()
+        {
+            try
+            {
+                _paymentService
+                    .GenerateMonthlyPaymentsForAllPolicies();
+
+                return Ok(
+                    new
+                    {
+                        message =
+                            "30-day payment records generated successfully."
+                    });
             }
             catch (Exception ex)
             {

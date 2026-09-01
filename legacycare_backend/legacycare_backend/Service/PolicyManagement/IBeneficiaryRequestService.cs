@@ -1,3 +1,7 @@
+// ============================================================================
+// File: Service/PolicyManagement/IBeneficiaryRequestService.cs
+// ============================================================================
+
 using PolicyManagement.Models;
 
 namespace PolicyManagement.Service.PolicyManagement
@@ -6,16 +10,28 @@ namespace PolicyManagement.Service.PolicyManagement
     {
         IEnumerable<BeneficiaryRequest> GetAllRequests();
 
-        BeneficiaryRequest GetRequestById(string requestId);
+        BeneficiaryRequest GetRequestById(
+            string requestId);
 
-        IEnumerable<BeneficiaryRequest> GetRequestsByPolicy(string policyId);
+        IEnumerable<BeneficiaryRequest> GetRequestsByPolicy(
+            string policyId);
 
-        BeneficiaryRequest CreateRequest(BeneficiaryRequest request);
+        IEnumerable<BeneficiaryRequest> GetRequestsByPolicyForClient(
+            string policyId,
+            string userId);
 
-        void ApproveRequest(string requestId);
+        BeneficiaryRequest CreateRequest(
+            BeneficiaryRequest request,
+            string userId);
 
-        void RejectRequest(string requestId);
+        void ApproveRequest(
+            string requestId);
 
-        void DeleteRequest(string requestId);
+        void RejectRequest(
+            string requestId);
+
+        void DeleteRequest(
+            string requestId);
     }
 }
+

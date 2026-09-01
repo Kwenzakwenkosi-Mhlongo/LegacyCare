@@ -1,3 +1,7 @@
+// ============================================================
+// File: Service/PolicyManagement/IPackageChangeRequestService.cs
+// ============================================================
+
 using PolicyManagement.Models;
 
 namespace PolicyManagement.Service.PolicyManagement
@@ -6,16 +10,27 @@ namespace PolicyManagement.Service.PolicyManagement
     {
         IEnumerable<ChangePackageRequest> GetAllRequests();
 
-        ChangePackageRequest GetRequestById(string requestId);
+        ChangePackageRequest GetRequestById(
+            string requestId);
 
-        IEnumerable<ChangePackageRequest> GetRequestsByPolicy(string policyId);
+        IEnumerable<ChangePackageRequest> GetRequestsByPolicy(
+            string policyId);
 
-        ChangePackageRequest CreateRequest(ChangePackageRequest request);
+        IEnumerable<ChangePackageRequest> GetRequestsByPolicyForClient(
+            string policyId,
+            string userId);
 
-        void ApproveRequest(string requestId);
+        ChangePackageRequest CreateRequest(
+            ChangePackageRequest request,
+            string userId);
 
-        void RejectRequest(string requestId);
+        void ApproveRequest(
+            string requestId);
 
-        void DeleteRequest(string requestId);
+        void RejectRequest(
+            string requestId);
+
+        void DeleteRequest(
+            string requestId);
     }
 }

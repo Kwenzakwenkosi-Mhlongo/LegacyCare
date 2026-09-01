@@ -1,23 +1,34 @@
-using System.ComponentModel.DataAnnotations;
+// ============================================================================
+// File: DTOs/Requests/CreateBeneficiaryRequestRequest.cs
+// ============================================================================
+
 using PolicyManagement.Enums;
 
 namespace PolicyManagement.DTOs.Requests
 {
-    public class CreateBeneficiaryRequest
+    /// <summary>
+    /// Contains only client-editable fields for a beneficiary change request.
+    /// Server-owned fields such as UserId, RequestId, Status and RequestDate
+    /// are intentionally excluded.
+    /// </summary>
+    public class CreateBeneficiaryRequestRequest
     {
-        [Required]
-        public string FullName { get; set; } = string.Empty;
+        public string PolicyId { get; set; } = string.Empty;
 
-        [Required]
-        public string IDNumber { get; set; } = string.Empty;
+        public RequestType RequestType { get; set; }
 
-        [Required]
+        public string? Description { get; set; }
+
+        public string? BeneficiaryId { get; set; }
+
+        public string? FullName { get; set; }
+
+        public BeneficiaryRelationship Relationship { get; set; }
+
+        public string? IDNumber { get; set; }
+
         public DateTime DateOfBirth { get; set; }
 
-        [Required]
-        public string Gender { get; set; } = string.Empty;
-
-        [Required]
-        public BeneficiaryRelationship Relationship { get; set; }
+        public string? Gender { get; set; }
     }
 }

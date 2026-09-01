@@ -684,6 +684,67 @@ namespace PolicyManagement.Controllers
                 );
             }
         }
+        [HttpPut("clerk/{id:int}/review")]
+[Authorize(Roles = "Clerk,Admin")]
+public IActionResult Review(
+    int id,
+    [FromBody] ReviewServiceRequestRequest request)
+{
+    try
+    {
+        if (request == null)
+        {
+            return BadRequest(
+                new
+                {
+                    message =
+                        "Review information is required."
+                }
+            );
+        }
+
+        var updated =
+            _serviceRequestService.Review(
+                id,
+                request
+            );
+
+        return Ok(updated);
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return NotFound(
+            new
+            {
+                message = ex.Message
+            }
+        );
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(
+            new
+            {
+                message = ex.Message
+            }
+        );
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(
+            $"[ServiceRequestController] Review error: {ex}"
+        );
+
+        return StatusCode(
+            500,
+            new
+            {
+                message =
+                    "Internal server error."
+            }
+        );
+    }
+}
 
         // ============================================================
         // DELETE

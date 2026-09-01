@@ -10,7 +10,7 @@ namespace PolicyManagement.DTOs.Requests
 
         public DateTime StartDate { get; set; }
 
-        public List<CreateBeneficiaryRequest> Beneficiaries { get; set; }
+        public List<CreateBeneficiaryRequestRequest> Beneficiaries { get; set; }
             = [];
     }
 }

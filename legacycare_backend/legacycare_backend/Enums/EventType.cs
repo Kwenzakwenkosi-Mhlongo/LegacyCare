@@ -2,9 +2,9 @@ namespace PolicyManagement.Enums
 {
     public enum EventType
     {
-        Appointment,
-        Funeral,
-        Memorial,
-        ParlourRelated
+        Appointment = 0,
+        Funeral = 1,
+        Memorial = 2,
+        ParlourRelated = 3
     }
 }
