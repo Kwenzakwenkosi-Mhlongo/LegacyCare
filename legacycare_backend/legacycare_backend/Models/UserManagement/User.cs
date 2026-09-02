@@ -1,7 +1,8 @@
+// File:
+// legacycare_backend/legacycare_backend/Models/UserManagement/User.cs
+
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json.Serialization;
 using PolicyManagement.Enums;
 
 namespace PolicyManagement.Models.UserManagement
@@ -37,7 +38,7 @@ namespace PolicyManagement.Models.UserManagement
 
         public DateTime? PasswordSetupTokenExpiry { get; set; }
 
-      
+        public string? ProfilePictureBlobName { get; set; }
 
         public User()
         {

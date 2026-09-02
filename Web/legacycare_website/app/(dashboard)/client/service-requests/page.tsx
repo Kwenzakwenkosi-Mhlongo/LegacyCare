@@ -377,13 +377,11 @@ const workflowStatuses:
     "Approved",
     "Rejected",
   ],
-
   funeral: [
     "Pending",
     "Approved",
     "Rejected",
   ],
-
   appointment: [
     "Requested",
     "Confirmed",
@@ -392,7 +390,6 @@ const workflowStatuses:
     "Cancelled",
     "No Show",
   ],
-
   quote: [
     "Requested",
     "In Review",
@@ -401,7 +398,6 @@ const workflowStatuses:
     "Rejected",
     "Cancelled",
   ],
-
   policy: [
     "Submitted",
     "In Review",
@@ -409,7 +405,6 @@ const workflowStatuses:
     "Resolved",
     "Closed",
   ],
-
   payment: [
     "Submitted",
     "In Review",
@@ -417,7 +412,6 @@ const workflowStatuses:
     "Resolved",
     "Closed",
   ],
-
   documents: [
     "Submitted",
     "Processing",
@@ -426,7 +420,6 @@ const workflowStatuses:
     "Rejected",
     "Cancelled",
   ],
-
   support: [
     "Submitted",
     "In Progress",
@@ -434,13 +427,11 @@ const workflowStatuses:
     "Resolved",
     "Closed",
   ],
-
   packageChange: [
     "Pending",
     "Approved",
     "Rejected",
   ],
-
   beneficiaryChange: [
     "Pending",
     "Approved",
@@ -705,55 +696,46 @@ function getServiceStatusLabel(
         number,
         string
       >,
-
     funeral:
       FuneralRequestStatus as unknown as Record<
         number,
         string
       >,
-
     appointment:
       AppointmentStatus as unknown as Record<
         number,
         string
       >,
-
     quote:
       QuoteRequestStatus as unknown as Record<
         number,
         string
       >,
-
     policy:
       PolicyEnquiryStatus as unknown as Record<
         number,
         string
       >,
-
     payment:
       PaymentEnquiryStatus as unknown as Record<
         number,
         string
       >,
-
     documents:
       DocumentRequestStatus as unknown as Record<
         number,
         string
       >,
-
     support:
       GeneralSupportStatus as unknown as Record<
         number,
         string
       >,
-
     packageChange:
       RequestStatus as unknown as Record<
         number,
         string
       >,
-
     beneficiaryChange:
       RequestStatus as unknown as Record<
         number,
@@ -938,13 +920,10 @@ function getHeartTheme(
     return {
       border:
         "bg-teal-200 hover:bg-teal-400",
-
       inner:
         "bg-white group-hover:bg-teal-50",
-
       icon:
         "border-teal-200 bg-teal-100",
-
       action:
         "text-teal-700",
     };
@@ -953,13 +932,10 @@ function getHeartTheme(
   return {
     border:
       "bg-pink-200 hover:bg-pink-400",
-
     inner:
       "bg-white group-hover:bg-pink-50",
-
     icon:
       "border-pink-200 bg-pink-100",
-
     action:
       "text-pink-700",
   };
@@ -1067,7 +1043,6 @@ export default function ServiceRequestsPage() {
         return {
           title:
             "Appointment booked successfully",
-
           message:
             "Your appointment was submitted and is waiting for Clerk review.",
         };
@@ -1079,7 +1054,6 @@ export default function ServiceRequestsPage() {
         return {
           title:
             "Quote request submitted successfully",
-
           message:
             "Your quote request is now available in My Requests and is waiting for Clerk review.",
         };
@@ -1091,7 +1065,6 @@ export default function ServiceRequestsPage() {
         return {
           title:
             "Document request submitted successfully",
-
           message:
             "Your document request is now available in My Requests.",
         };
@@ -1103,7 +1076,6 @@ export default function ServiceRequestsPage() {
         return {
           title:
             "Support request submitted successfully",
-
           message:
             "Your support request is now available in My Requests and is waiting for Clerk review.",
         };
@@ -1172,11 +1144,9 @@ export default function ServiceRequestsPage() {
           headers: {
             Accept:
               "application/json",
-
             Authorization:
               `Bearer ${token}`,
           },
-
           cache:
             "no-store",
         }
@@ -1212,11 +1182,9 @@ export default function ServiceRequestsPage() {
           headers: {
             Accept:
               "application/json",
-
             Authorization:
               `Bearer ${token}`,
           },
-
           cache:
             "no-store",
         }
@@ -1254,11 +1222,9 @@ export default function ServiceRequestsPage() {
           headers: {
             Accept:
               "application/json",
-
             Authorization:
               `Bearer ${token}`,
           },
-
           cache:
             "no-store",
         }
@@ -1296,11 +1262,9 @@ export default function ServiceRequestsPage() {
           headers: {
             Accept:
               "application/json",
-
             Authorization:
               `Bearer ${token}`,
           },
-
           cache:
             "no-store",
         }
@@ -1344,11 +1308,9 @@ export default function ServiceRequestsPage() {
                   headers: {
                     Accept:
                       "application/json",
-
                     Authorization:
                       `Bearer ${token}`,
                   },
-
                   cache:
                     "no-store",
                 }
@@ -1385,11 +1347,9 @@ export default function ServiceRequestsPage() {
                   headers: {
                     Accept:
                       "application/json",
-
                     Authorization:
                       `Bearer ${token}`,
                   },
-
                   cache:
                     "no-store",
                 }
@@ -1480,15 +1440,12 @@ export default function ServiceRequestsPage() {
         loadServiceRequests(
           token
         ),
-
         loadAppointments(
           token
         ),
-
         loadBranches(
           token
         ),
-
         loadPolicyRequests(
           token
         ),
@@ -1556,19 +1513,15 @@ export default function ServiceRequestsPage() {
         > = {
         death: 0,
         funeral: 0,
-
         appointment:
           appointments.length,
-
         quote: 0,
         policy: 0,
         payment: 0,
         documents: 0,
         support: 0,
-
         packageChange:
           packageChangeRequests.length,
-
         beneficiaryChange:
           beneficiaryChangeRequests.length,
       };
@@ -1675,7 +1628,6 @@ export default function ServiceRequestsPage() {
           label
         ) => ({
           label,
-
           count:
             actualStatuses.filter(
               (
@@ -1769,629 +1721,628 @@ export default function ServiceRequestsPage() {
     selectedTotal > 0;
 
   return (
-    <div className="-m-6 min-h-screen bg-slate-100 p-6 text-slate-900 md:-m-8 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-10">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+    <div className="space-y-10">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-sm">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-100">
+              LegacyCare Client Portal
+            </p>
+
+            <h1 className="mt-3 text-3xl font-bold">
+              Service Requests
+            </h1>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-teal-50">
+              Start LegacyCare services and track every request through
+              its current workflow and status.
+            </p>
+          </div>
+
+          <Link
+            href="/client"
+            className="inline-flex w-fit items-center rounded-xl border border-white/30 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </section>
+
+      {createdRequestMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">
+              ✅
+            </span>
+
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-teal-600">
-                LegacyCare
-              </p>
+              <h2 className="font-semibold text-emerald-900">
+                {
+                  createdRequestMessage.title
+                }
+              </h2>
 
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">
-                Service Requests
-              </h1>
-
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Start services and track every request using its correct workflow status.
+              <p className="mt-1 text-sm leading-6 text-emerald-700">
+                {
+                  createdRequestMessage.message
+                }
               </p>
             </div>
-
-            <Link
-              href="/client"
-              className="text-sm font-semibold text-teal-600 transition hover:text-teal-700"
-            >
-              ← Back to Dashboard
-            </Link>
           </div>
-        </header>
+        </div>
+      ) : null}
 
-        {createdRequestMessage ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-            <div className="flex items-start gap-3">
-              <span className="text-xl">
-                ✅
-              </span>
+      <section>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Start a Request
+        </h2>
 
-              <div>
-                <h2 className="font-semibold text-emerald-900">
-                  {
-                    createdRequestMessage.title
+        <p className="mt-1 text-sm text-slate-600">
+          Package and beneficiary changes are managed under My Policies.
+        </p>
+
+        <div className="mt-8 grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-4">
+          {startRequestTypes.map(
+            (
+              service,
+              index
+            ) => {
+              const theme =
+                getHeartTheme(
+                  index
+                );
+
+              return (
+                <Link
+                  key={
+                    service.key
                   }
-                </h2>
-
-                <p className="mt-1 text-sm leading-6 text-emerald-700">
-                  {
-                    createdRequestMessage.message
+                  href={
+                    service.href
                   }
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <section>
-          <h2 className="text-xl font-semibold text-slate-900">
-            Start a Request
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-600">
-            Package and beneficiary changes are managed under My Policies.
-          </p>
-
-          <div className="mt-8 grid grid-cols-1 gap-7 sm:grid-cols-2 lg:grid-cols-4">
-            {startRequestTypes.map(
-              (
-                service,
-                index
-              ) => {
-                const theme =
-                  getHeartTheme(
-                    index
-                  );
-
-                return (
-                  <Link
-                    key={
-                      service.key
-                    }
-                    href={
-                      service.href
-                    }
-                    className={`group relative mx-auto flex h-[300px] w-full max-w-[300px] items-center justify-center p-[2px] transition duration-300 hover:-translate-y-2 hover:drop-shadow-[0_10px_20px_rgba(15,23,42,0.12)] ${theme.border}`}
+                  className={`group relative mx-auto flex h-[300px] w-full max-w-[300px] items-center justify-center p-[2px] transition duration-300 hover:-translate-y-2 hover:drop-shadow-[0_10px_20px_rgba(15,23,42,0.12)] ${theme.border}`}
+                  style={{
+                    clipPath:
+                      "polygon(50% 96%, 8% 58%, 2% 39%, 4% 22%, 14% 9%, 28% 4%, 40% 8%, 50% 20%, 60% 8%, 72% 4%, 86% 9%, 96% 22%, 98% 39%, 92% 58%)",
+                  }}
+                >
+                  <div
+                    className={`flex h-full w-full flex-col items-center justify-center px-8 pb-14 pt-12 text-center transition ${theme.inner}`}
                     style={{
                       clipPath:
                         "polygon(50% 96%, 8% 58%, 2% 39%, 4% 22%, 14% 9%, 28% 4%, 40% 8%, 50% 20%, 60% 8%, 72% 4%, 86% 9%, 96% 22%, 98% 39%, 92% 58%)",
                     }}
                   >
                     <div
-                      className={`flex h-full w-full flex-col items-center justify-center px-8 pb-14 pt-12 text-center transition ${theme.inner}`}
-                      style={{
-                        clipPath:
-                          "polygon(50% 96%, 8% 58%, 2% 39%, 4% 22%, 14% 9%, 28% 4%, 40% 8%, 50% 20%, 60% 8%, 72% 4%, 86% 9%, 96% 22%, 98% 39%, 92% 58%)",
-                      }}
+                      className={`flex h-14 w-14 items-center justify-center rounded-full border text-3xl ${theme.icon}`}
                     >
-                      <div
-                        className={`flex h-14 w-14 items-center justify-center rounded-full border text-3xl ${theme.icon}`}
-                      >
-                        {
-                          service.icon
-                        }
-                      </div>
+                      {
+                        service.icon
+                      }
+                    </div>
 
-                      <h3 className="mt-4 text-lg font-bold text-slate-900">
+                    <h3 className="mt-4 text-lg font-bold text-slate-900">
+                      {
+                        service.title
+                      }
+                    </h3>
+
+                    <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">
+                      {
+                        service.description
+                      }
+                    </p>
+
+                    <span
+                      className={`mt-4 text-sm font-bold ${theme.action}`}
+                    >
+                      Start →
+                    </span>
+                  </div>
+                </Link>
+              );
+            }
+          )}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">
+              My Requests
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-600">
+              Each service keeps its own request workflow and statuses.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              void loadAll(
+                true
+              )
+            }
+            disabled={
+              refreshing
+            }
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-50"
+          >
+            {refreshing
+              ? "Refreshing..."
+              : "↻ Refresh"}
+          </button>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="py-14 text-center text-sm text-slate-500">
+              Loading your requests...
+            </div>
+          ) : null}
+
+          {!loading &&
+          error ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {!loading &&
+          !error ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {trackingTypes.map(
+                  (
+                    service
+                  ) => {
+                    const active =
+                      selectedService ===
+                      service.key;
+
+                    return (
+                      <button
+                        key={
+                          service.key
+                        }
+                        type="button"
+                        onClick={() =>
+                          setSelectedService(
+                            service.key
+                          )
+                        }
+                        className={`rounded-2xl border p-5 text-left transition ${
+                          active
+                            ? "border-teal-500 bg-teal-50 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-teal-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-2xl">
+                            {
+                              service.icon
+                            }
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                              active
+                                ? "bg-teal-600 text-white"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {
+                              serviceCounts[
+                                service.key
+                              ]
+                            }
+                          </span>
+                        </div>
+
+                        <p className="mt-4 text-sm font-bold text-slate-900">
+                          {
+                            service.title
+                          }
+                        </p>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+
+              {!selectedService ? (
+                <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
+                  <h3 className="font-semibold text-slate-900">
+                    Select a request type
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-500">
+                    Choose a service above to view its request history and workflow.
+                  </p>
+                </div>
+              ) : null}
+
+              {selectedService &&
+              selectedDefinition ? (
+                <div className="mt-10 space-y-6">
+                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">
                         {
-                          service.title
+                          selectedDefinition.icon
+                        }{" "}
+                        {
+                          selectedDefinition.title
                         }
                       </h3>
 
-                      <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600">
-                        {
-                          service.description
-                        }
+                      <p className="mt-1 text-sm text-slate-500">
+                        Track every status in this workflow.
                       </p>
-
-                      <span
-                        className={`mt-4 text-sm font-bold ${theme.action}`}
-                      >
-                        Start →
-                      </span>
                     </div>
-                  </Link>
-                );
-              }
-            )}
-          </div>
-        </section>
 
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-900">
-                My Requests
-              </h2>
+                    <Link
+                      href={
+                        selectedDefinition.href
+                      }
+                      className="rounded-xl bg-teal-600 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-teal-700"
+                    >
+                      {
+                        selectedDefinition.actionLabel
+                      }
+                    </Link>
+                  </div>
 
-              <p className="mt-1 text-sm text-slate-600">
-                Each service keeps its own request workflow and statuses.
-              </p>
-            </div>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+                    <StatusSummaryCard
+                      label="Total"
+                      count={
+                        selectedTotal
+                      }
+                    />
 
-            <button
-              type="button"
-              onClick={() =>
-                void loadAll(
-                  true
-                )
-              }
-              disabled={
-                refreshing
-              }
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 disabled:opacity-50"
-            >
-              {refreshing
-                ? "Refreshing..."
-                : "↻ Refresh"}
-            </button>
-          </div>
-
-          <div className="p-6">
-            {loading ? (
-              <div className="py-14 text-center text-sm text-slate-500">
-                Loading your requests...
-              </div>
-            ) : null}
-
-            {!loading &&
-            error ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
-                {error}
-              </div>
-            ) : null}
-
-            {!loading &&
-            !error ? (
-              <>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                  {trackingTypes.map(
-                    (
-                      service
-                    ) => {
-                      const active =
-                        selectedService ===
-                        service.key;
-
-                      return (
-                        <button
+                    {statusSummary.map(
+                      (
+                        item
+                      ) => (
+                        <StatusSummaryCard
                           key={
-                            service.key
+                            item.label
                           }
-                          type="button"
-                          onClick={() =>
-                            setSelectedService(
-                              service.key
-                            )
+                          label={
+                            item.label
                           }
-                          className={`rounded-2xl border p-5 text-left transition ${
-                            active
-                              ? "border-teal-500 bg-teal-50 shadow-sm"
-                              : "border-slate-200 bg-white hover:border-teal-300 hover:bg-slate-50"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="text-2xl">
-                              {
-                                service.icon
-                              }
-                            </span>
+                          count={
+                            item.count
+                          }
+                        />
+                      )
+                    )}
+                  </div>
 
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                                active
-                                  ? "bg-teal-600 text-white"
-                                  : "bg-slate-100 text-slate-700"
-                              }`}
-                            >
+                  {!hasSelectedRequests ? (
+                    <EmptyState
+                      title={`No ${selectedDefinition.title.toLowerCase()} yet`}
+                      description="New requests will appear here once submitted."
+                      href={
+                        selectedDefinition.href
+                      }
+                      actionLabel={
+                        selectedDefinition.actionLabel
+                      }
+                    />
+                  ) : null}
+
+                  {selectedService ===
+                    "packageChange" &&
+                    packageChangeRequests.map(
+                      (
+                        request
+                      ) => (
+                        <RequestCard
+                          key={
+                            request.requestId
+                          }
+                        >
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
+                              Package Change
+                            </p>
+
+                            <h4 className="mt-2 font-semibold text-slate-900">
+                              Policy{" "}
                               {
-                                serviceCounts[
-                                  service.key
-                                ]
+                                request.policyId
                               }
-                            </span>
+                            </h4>
+
+                            <p className="mt-2 text-sm text-slate-600">
+                              New package:{" "}
+                              <strong className="text-slate-900">
+                                {request
+                                  .newPackage
+                                  ?.name ||
+                                  request.newPackageId}
+                              </strong>
+                            </p>
+
+                            <p className="mt-3 text-xs text-slate-400">
+                              Submitted{" "}
+                              {formatDate(
+                                request.requestDate
+                              )}{" "}
+                              {formatTime(
+                                request.requestDate
+                              )}
+                            </p>
                           </div>
 
-                          <p className="mt-4 text-sm font-bold text-slate-900">
-                            {
-                              service.title
-                            }
-                          </p>
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-
-                {!selectedService ? (
-                  <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-                    <h3 className="font-semibold text-slate-900">
-                      Select a request type
-                    </h3>
-
-                    <p className="mt-2 text-sm text-slate-500">
-                      Choose a service above to view its request history and workflow.
-                    </p>
-                  </div>
-                ) : null}
-
-                {selectedService &&
-                selectedDefinition ? (
-                  <div className="mt-10 space-y-6">
-                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">
-                          {
-                            selectedDefinition.icon
-                          }{" "}
-                          {
-                            selectedDefinition.title
-                          }
-                        </h3>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                          Track every status in this workflow.
-                        </p>
-                      </div>
-
-                      <Link
-                        href={
-                          selectedDefinition.href
-                        }
-                        className="rounded-xl bg-teal-600 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-teal-700"
-                      >
-                        {
-                          selectedDefinition.actionLabel
-                        }
-                      </Link>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-                      <StatusSummaryCard
-                        label="Total"
-                        count={
-                          selectedTotal
-                        }
-                      />
-
-                      {statusSummary.map(
-                        (
-                          item
-                        ) => (
-                          <StatusSummaryCard
-                            key={
-                              item.label
-                            }
-                            label={
-                              item.label
-                            }
-                            count={
-                              item.count
-                            }
+                          <StatusBadge
+                            label={getRequestStatusLabel(
+                              request.status
+                            )}
                           />
-                        )
-                      )}
-                    </div>
+                        </RequestCard>
+                      )
+                    )}
 
-                    {!hasSelectedRequests ? (
-                      <EmptyState
-                        title={`No ${selectedDefinition.title.toLowerCase()} yet`}
-                        description="New requests will appear here once submitted."
-                        href={
-                          selectedDefinition.href
-                        }
-                        actionLabel={
-                          selectedDefinition.actionLabel
-                        }
-                      />
-                    ) : null}
+                  {selectedService ===
+                    "beneficiaryChange" &&
+                    beneficiaryChangeRequests.map(
+                      (
+                        request
+                      ) => (
+                        <RequestCard
+                          key={
+                            request.requestId
+                          }
+                        >
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-pink-600">
+                              {getBeneficiaryRequestTypeLabel(
+                                request.requestType
+                              )}
+                            </p>
 
-                    {selectedService ===
-                      "packageChange" &&
-                      packageChangeRequests.map(
-                        (
-                          request
-                        ) => (
+                            <h4 className="mt-2 font-semibold text-slate-900">
+                              Policy{" "}
+                              {
+                                request.policyId
+                              }
+                            </h4>
+
+                            <p className="mt-2 text-sm text-slate-600">
+                              Beneficiary:{" "}
+                              <strong className="text-slate-900">
+                                {request.fullName ||
+                                  request
+                                    .beneficiary
+                                    ?.fullName ||
+                                  request.beneficiaryId ||
+                                  "Existing beneficiary"}
+                              </strong>
+                            </p>
+
+                            {!isRemoveBeneficiaryRequest(
+                              request.requestType
+                            ) ? (
+                              <p className="mt-1 text-sm text-slate-500">
+                                Relationship:{" "}
+                                {getRelationshipLabel(
+                                  request.relationship
+                                )}
+                              </p>
+                            ) : null}
+
+                            {request.description ? (
+                              <p className="mt-2 text-sm text-slate-500">
+                                {
+                                  request.description
+                                }
+                              </p>
+                            ) : null}
+
+                            <p className="mt-3 text-xs text-slate-400">
+                              Submitted{" "}
+                              {formatDate(
+                                request.requestDate
+                              )}
+                            </p>
+                          </div>
+
+                          <StatusBadge
+                            label={getRequestStatusLabel(
+                              request.status
+                            )}
+                          />
+                        </RequestCard>
+                      )
+                    )}
+
+                  {selectedService ===
+                    "appointment" &&
+                    appointments.map(
+                      (
+                        appointment
+                      ) => {
+                        const scheduled =
+                          appointment.confirmedDateTime ||
+                          appointment.preferredDateTime;
+
+                        return (
                           <RequestCard
                             key={
-                              request.requestId
+                              appointment.appointmentId
                             }
                           >
                             <div>
                               <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
-                                Package Change
+                                Appointment
                               </p>
 
                               <h4 className="mt-2 font-semibold text-slate-900">
-                                Policy{" "}
                                 {
-                                  request.policyId
+                                  appointment.appointmentType
                                 }
                               </h4>
 
                               <p className="mt-2 text-sm text-slate-600">
-                                New package:{" "}
-                                <strong className="text-slate-900">
-                                  {request
-                                    .newPackage
-                                    ?.name ||
-                                    request.newPackageId}
-                                </strong>
-                              </p>
-
-                              <p className="mt-3 text-xs text-slate-400">
-                                Submitted{" "}
                                 {formatDate(
-                                  request.requestDate
+                                  scheduled
                                 )}{" "}
                                 {formatTime(
-                                  request.requestDate
-                                )}
-                              </p>
-                            </div>
-
-                            <StatusBadge
-                              label={getRequestStatusLabel(
-                                request.status
-                              )}
-                            />
-                          </RequestCard>
-                        )
-                      )}
-
-                    {selectedService ===
-                      "beneficiaryChange" &&
-                      beneficiaryChangeRequests.map(
-                        (
-                          request
-                        ) => (
-                          <RequestCard
-                            key={
-                              request.requestId
-                            }
-                          >
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-wide text-pink-600">
-                                {getBeneficiaryRequestTypeLabel(
-                                  request.requestType
+                                  scheduled
                                 )}
                               </p>
 
-                              <h4 className="mt-2 font-semibold text-slate-900">
-                                Policy{" "}
-                                {
-                                  request.policyId
-                                }
-                              </h4>
-
-                              <p className="mt-2 text-sm text-slate-600">
-                                Beneficiary:{" "}
-                                <strong className="text-slate-900">
-                                  {request.fullName ||
-                                    request
-                                      .beneficiary
-                                      ?.fullName ||
-                                    request.beneficiaryId ||
-                                    "Existing beneficiary"}
-                                </strong>
-                              </p>
-
-                              {!isRemoveBeneficiaryRequest(
-                                request.requestType
-                              ) ? (
-                                <p className="mt-1 text-sm text-slate-500">
-                                  Relationship:{" "}
-                                  {getRelationshipLabel(
-                                    request.relationship
-                                  )}
-                                </p>
-                              ) : null}
-
-                              {request.description ? (
+                              {appointment.clientNotes ? (
                                 <p className="mt-2 text-sm text-slate-500">
                                   {
-                                    request.description
+                                    appointment.clientNotes
                                   }
                                 </p>
                               ) : null}
-
-                              <p className="mt-3 text-xs text-slate-400">
-                                Submitted{" "}
-                                {formatDate(
-                                  request.requestDate
-                                )}
-                              </p>
-                            </div>
-
-                            <StatusBadge
-                              label={getRequestStatusLabel(
-                                request.status
-                              )}
-                            />
-                          </RequestCard>
-                        )
-                      )}
-
-                    {selectedService ===
-                      "appointment" &&
-                      appointments.map(
-                        (
-                          appointment
-                        ) => {
-                          const scheduled =
-                            appointment.confirmedDateTime ||
-                            appointment.preferredDateTime;
-
-                          return (
-                            <RequestCard
-                              key={
-                                appointment.appointmentId
-                              }
-                            >
-                              <div>
-                                <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
-                                  Appointment
-                                </p>
-
-                                <h4 className="mt-2 font-semibold text-slate-900">
-                                  {
-                                    appointment.appointmentType
-                                  }
-                                </h4>
-
-                                <p className="mt-2 text-sm text-slate-600">
-                                  {formatDate(
-                                    scheduled
-                                  )}{" "}
-                                  {formatTime(
-                                    scheduled
-                                  )}
-                                </p>
-
-                                {appointment.clientNotes ? (
-                                  <p className="mt-2 text-sm text-slate-500">
-                                    {
-                                      appointment.clientNotes
-                                    }
-                                  </p>
-                                ) : null}
-                              </div>
-
-                              <div className="flex flex-wrap gap-2">
-                                <StatusBadge
-                                  label={getAppointmentStatusLabel(
-                                    appointment.status
-                                  )}
-                                />
-
-                                <span
-                                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getPriorityStyle(
-                                    appointment.priority
-                                  )}`}
-                                >
-                                  {
-                                    appointment.priority
-                                  }{" "}
-                                  Priority
-                                </span>
-
-                                <Link
-                                  href={`/client/service-requests/${appointment.serviceRequestId}`}
-                                  className="rounded-xl border border-teal-600 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
-                                >
-                                  View Details
-                                </Link>
-                              </div>
-                            </RequestCard>
-                          );
-                        }
-                      )}
-
-                    {selectedService !==
-                      "appointment" &&
-                      selectedService !==
-                        "packageChange" &&
-                      selectedService !==
-                        "beneficiaryChange" &&
-                      selectedGenericRequests.map(
-                        (
-                          request
-                        ) => (
-                          <RequestCard
-                            key={
-                              request.serviceRequestId
-                            }
-                          >
-                            <div>
-                              <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
-                                {formatEnumText(
-                                  request.requestType
-                                )}
-                              </p>
-
-                              <h4 className="mt-2 font-semibold text-slate-900">
-                                REQ-
-                                {String(
-                                  request.serviceRequestId
-                                ).padStart(
-                                  5,
-                                  "0"
-                                )}
-                              </h4>
-
-                              <p className="mt-2 text-sm text-slate-600">
-                                Branch:{" "}
-                                {getBranchName(
-                                  request
-                                )}
-                              </p>
-
-                              {request.description ? (
-                                <p className="mt-2 max-w-xl whitespace-pre-line text-sm text-slate-500">
-                                  {
-                                    request.description
-                                  }
-                                </p>
-                              ) : null}
-
-                              {selectedService ===
-                              "death" ? (
-                                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
-                                  <p className="text-sm text-blue-700">
-                                    For changes, contact LegacyCare Admin:{" "}
-                                    <strong>
-                                      {
-                                        LEGACYCARE_CONTACT_NUMBER
-                                      }
-                                    </strong>
-                                  </p>
-                                </div>
-                              ) : null}
-
-                              <p className="mt-3 text-xs text-slate-400">
-                                Submitted{" "}
-                                {formatDate(
-                                  request.createdDate
-                                )}{" "}
-                                {formatTime(
-                                  request.createdDate
-                                )}
-                              </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
                               <StatusBadge
-                                label={getServiceStatusLabel(
-                                  selectedService,
-                                  request.status
+                                label={getAppointmentStatusLabel(
+                                  appointment.status
                                 )}
                               />
 
                               <span
                                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getPriorityStyle(
-                                  request.priority
+                                  appointment.priority
                                 )}`}
                               >
                                 {
-                                  request.priority
+                                  appointment.priority
                                 }{" "}
                                 Priority
                               </span>
 
                               <Link
-                                href={`/client/service-requests/${request.serviceRequestId}`}
+                                href={`/client/service-requests/${appointment.serviceRequestId}`}
                                 className="rounded-xl border border-teal-600 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
                               >
                                 View Details
                               </Link>
                             </div>
                           </RequestCard>
-                        )
-                      )}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        </section>
-      </div>
+                        );
+                      }
+                    )}
+
+                  {selectedService !==
+                    "appointment" &&
+                    selectedService !==
+                      "packageChange" &&
+                    selectedService !==
+                      "beneficiaryChange" &&
+                    selectedGenericRequests.map(
+                      (
+                        request
+                      ) => (
+                        <RequestCard
+                          key={
+                            request.serviceRequestId
+                          }
+                        >
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-teal-600">
+                              {formatEnumText(
+                                request.requestType
+                              )}
+                            </p>
+
+                            <h4 className="mt-2 font-semibold text-slate-900">
+                              REQ-
+                              {String(
+                                request.serviceRequestId
+                              ).padStart(
+                                5,
+                                "0"
+                              )}
+                            </h4>
+
+                            <p className="mt-2 text-sm text-slate-600">
+                              Branch:{" "}
+                              {getBranchName(
+                                request
+                              )}
+                            </p>
+
+                            {request.description ? (
+                              <p className="mt-2 max-w-xl whitespace-pre-line text-sm text-slate-500">
+                                {
+                                  request.description
+                                }
+                              </p>
+                            ) : null}
+
+                            {selectedService ===
+                            "death" ? (
+                              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                                <p className="text-sm text-blue-700">
+                                  For changes, contact LegacyCare Admin:{" "}
+                                  <strong>
+                                    {
+                                      LEGACYCARE_CONTACT_NUMBER
+                                    }
+                                  </strong>
+                                </p>
+                              </div>
+                            ) : null}
+
+                            <p className="mt-3 text-xs text-slate-400">
+                              Submitted{" "}
+                              {formatDate(
+                                request.createdDate
+                              )}{" "}
+                              {formatTime(
+                                request.createdDate
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <StatusBadge
+                              label={getServiceStatusLabel(
+                                selectedService,
+                                request.status
+                              )}
+                            />
+
+                            <span
+                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getPriorityStyle(
+                                request.priority
+                              )}`}
+                            >
+                              {
+                                request.priority
+                              }{" "}
+                              Priority
+                            </span>
+
+                            <Link
+                              href={`/client/service-requests/${request.serviceRequestId}`}
+                              className="rounded-xl border border-teal-600 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
+                            >
+                              View Details
+                            </Link>
+                          </div>
+                        </RequestCard>
+                      )
+                    )}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </section>
     </div>
   );
 }

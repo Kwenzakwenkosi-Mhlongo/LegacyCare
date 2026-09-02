@@ -1,4 +1,5 @@
-// File: app/(dashboard)/client/policies/page.tsx
+// File:
+// Web/legacycare_website/app/(dashboard)/client/policies/page.tsx
 
 "use client";
 
@@ -173,15 +174,20 @@ export default function ClientPoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-100">
+          LegacyCare Client Portal
+        </p>
+
+        <h1 className="mt-3 text-3xl font-bold">
           My Policies
         </h1>
 
-        <p className="mt-1 text-sm text-gray-500">
-          View and manage your LegacyCare policies, packages, and beneficiaries.
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-teal-50">
+          View and manage your LegacyCare policies, packages,
+          beneficiaries and current coverage information.
         </p>
-      </div>
+      </section>
 
       {!loading && !error && policies.length > 0 ? (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

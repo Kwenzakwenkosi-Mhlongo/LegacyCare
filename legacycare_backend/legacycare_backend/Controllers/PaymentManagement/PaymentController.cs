@@ -1,14 +1,11 @@
-// ============================================================
-// FILE 8
-// Path:
+// File:
 // legacycare_backend/legacycare_backend/
-// Controllers/PaymentController.cs
-//
-// FULL REPLACEMENT
-// ============================================================
+// Controllers/PaymentManagement/PaymentController.cs
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PolicyManagement.Data;
 using PolicyManagement.DTOs.Requests;
 using PolicyManagement.Enums;
 using PolicyManagement.Service.PaymentManagement;
@@ -19,7 +16,8 @@ namespace PolicyManagement.Controllers
     [Authorize]
     public class PaymentController(
         IPaymentService paymentService,
-        IPaymentScheduleService paymentScheduleService)
+        IPaymentScheduleService paymentScheduleService,
+        AppDbContext context)
         : BaseController
     {
         private readonly IPaymentService _paymentService =
@@ -27,6 +25,9 @@ namespace PolicyManagement.Controllers
 
         private readonly IPaymentScheduleService _paymentScheduleService =
             paymentScheduleService;
+
+        private readonly AppDbContext _context =
+            context;
 
         [HttpGet]
         [Authorize(Roles = "Client")]
@@ -102,9 +103,6 @@ namespace PolicyManagement.Controllers
         {
             try
             {
-                /*
-                 * First call enforces the current ownership rule.
-                 */
                 _paymentService.GetPaymentsByPolicy(
                     UserId,
                     policyId);
@@ -143,10 +141,6 @@ namespace PolicyManagement.Controllers
                         "Cash payments are not supported.");
                 }
 
-                /*
-                 * Existing GetPaymentById confirms ownership.
-                 * Actual persistence should be added to PaymentService.
-                 */
                 var payment =
                     _paymentService.GetPaymentById(
                         paymentId,
@@ -282,6 +276,203 @@ namespace PolicyManagement.Controllers
             catch (Exception ex)
             {
                 return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("{paymentId}/invoice")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> GetPaymentInvoice(
+            string paymentId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(paymentId))
+                {
+                    return BadRequest(
+                        new
+                        {
+                            message =
+                                "Payment ID is required."
+                        });
+                }
+
+                var payment =
+                    await _context.Payment
+                        .AsNoTracking()
+                        .Where(item =>
+                            item.PaymentId == paymentId &&
+                            item.Policy.UserId == UserId)
+                        .Select(item => new
+                        {
+                            item.PaymentId,
+                            item.Amount,
+                            item.DueDate,
+                            item.PaymentDate,
+                            item.Method,
+                            item.Status,
+                            item.PolicyId,
+
+                            PackageName =
+                                item.Policy.Package != null
+                                    ? item.Policy.Package.Name
+                                    : string.Empty,
+
+                            PolicyStatus =
+                                item.Policy.Status.ToString(),
+
+                            UserId =
+                                item.Policy.UserId,
+
+                            FullName =
+                                item.Policy.User != null
+                                    ? item.Policy.User.FullName
+                                    : string.Empty,
+
+                            Email =
+                                item.Policy.User != null
+                                    ? item.Policy.User.Email
+                                    : string.Empty,
+
+                            CellNo =
+                                item.Policy.User != null
+                                    ? item.Policy.User.CellNo
+                                    : string.Empty,
+
+                            Address =
+                                item.Policy.User != null
+                                    ? item.Policy.User.Address
+                                    : string.Empty
+                        })
+                        .FirstOrDefaultAsync(
+                            cancellationToken);
+
+                if (payment == null)
+                {
+                    return NotFound(
+                        new
+                        {
+                            message =
+                                "Payment was not found."
+                        });
+                }
+
+                if (
+                    payment.Status !=
+                    PaymentStatus.SUCCESSFUL)
+                {
+                    return BadRequest(
+                        new
+                        {
+                            message =
+                                "Invoices are only available for successful payments."
+                        });
+                }
+
+                var client =
+                    await _context.Client
+                        .AsNoTracking()
+                        .Where(item =>
+                            item.UserId ==
+                            payment.UserId)
+                        .Select(item => new
+                        {
+                            item.ClientId
+                        })
+                        .FirstOrDefaultAsync(
+                            cancellationToken);
+
+                var clientId =
+                    client?.ClientId ??
+                    string.Empty;
+
+                var displayClientId =
+                    int.TryParse(
+                        clientId,
+                        out var numericClientId)
+                        ? $"CL{numericClientId:D3}"
+                        : clientId;
+
+                var compactPaymentId =
+                    payment.PaymentId
+                        .Replace(
+                            "-",
+                            string.Empty);
+
+                var invoiceReference =
+                    compactPaymentId.Length >= 10
+                        ? compactPaymentId[..10]
+                            .ToUpperInvariant()
+                        : compactPaymentId
+                            .ToUpperInvariant();
+
+                return Ok(
+                    new
+                    {
+                        paymentId =
+                            payment.PaymentId,
+
+                        invoiceReference,
+
+                        amount =
+                            payment.Amount,
+
+                        dueDate =
+                            payment.DueDate,
+
+                        paymentDate =
+                            payment.PaymentDate,
+
+                        method =
+                            payment.Method,
+
+                        status =
+                            payment.Status,
+
+                        policyId =
+                            payment.PolicyId,
+
+                        policyNumber =
+                            payment.PolicyId,
+
+                        packageName =
+                            string.IsNullOrWhiteSpace(
+                                payment.PackageName)
+                                ? "Policy Premium"
+                                : payment.PackageName,
+
+                        policyStatus =
+                            payment.PolicyStatus,
+
+                        clientId,
+
+                        displayClientId,
+
+                        fullName =
+                            payment.FullName,
+
+                        email =
+                            payment.Email,
+
+                        cellNo =
+                            payment.CellNo,
+
+                        address =
+                            payment.Address
+                    });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[PaymentController] Invoice error: {ex}");
+
+                return StatusCode(
+                    500,
+                    new
+                    {
+                        message =
+                            "Unable to load the payment invoice."
+                    });
             }
         }
 

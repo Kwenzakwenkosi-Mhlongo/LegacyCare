@@ -1,4 +1,5 @@
-// File: app/(dashboard)/client/page.tsx
+// File:
+// Web/legacycare_website/app/(dashboard)/client/page.tsx
 
 "use client";
 
@@ -439,15 +440,20 @@ export default function ClientPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-teal-700 to-emerald-600 p-8 text-white shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-100">
+          LegacyCare Client Portal
+        </p>
+
+        <h1 className="mt-3 text-3xl font-bold">
           Client Dashboard
         </h1>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Welcome back to your LegacyCare account.
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-teal-50">
+          Manage your LegacyCare policies, service requests,
+          beneficiaries and account information from one place.
         </p>
-      </div>
+      </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -480,10 +486,10 @@ export default function ClientPage() {
               </p>
 
               <p className="mt-1 text-sm leading-6 text-teal-700">
-               🕊️ Track your full request history in one place — including death reports, 
-               ⚰️ funeral requests, 📅 appointments, 💰 quotes, 🔄 package changes,
-              👨‍👩‍👧 beneficiary changes, 📄 policy enquiries, 💳 payment enquiries,
-               📑 document requests, and 💬 general support.
+                🕊️ Track your full request history in one place — including death reports,
+                ⚰️ funeral requests, 📅 appointments, 💰 quotes, 🔄 package changes,
+                👨‍👩‍👧 beneficiary changes, 📄 policy enquiries, 💳 payment enquiries,
+                📑 document requests, and 💬 general support.
               </p>
             </div>
           </div>

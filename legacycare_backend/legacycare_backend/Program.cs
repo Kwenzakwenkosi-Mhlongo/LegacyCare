@@ -323,7 +323,7 @@ builder.Services.AddScoped<
     IStorageService,
     StorageService>();
 
-    builder.Services.AddScoped<
+builder.Services.AddScoped<
     IDocumentService,
     DocumentService>();
 
@@ -351,9 +351,13 @@ builder.Services.AddScoped<
     IPaymentMethodService,
     PaymentMethodService>();
 
-    builder.Services.AddScoped<
+builder.Services.AddScoped<
     IPaymentScheduleService,
     PaymentScheduleService>();
+
+builder.Services.AddScoped<
+    IProfilePictureService,
+    ProfilePictureService>();
 
 builder.Services.AddScoped<
     IInvoiceService,
@@ -377,7 +381,9 @@ builder.Services.AddScoped<
     IStaffService,
     StaffService>();
 
-    builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<
+    IAppointmentService,
+    AppointmentService>();
 
 builder.Services.AddScoped<
     IClientValidationService,
@@ -409,7 +415,6 @@ builder.Services.AddScoped<
 
 builder.Services.AddScoped<
     OperationalStaffSeeder>();
-
 
 // =====================================================
 // DASHBOARD SERVICE
