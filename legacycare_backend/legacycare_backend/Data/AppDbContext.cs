@@ -1,4 +1,3 @@
-// File: Data/AppDbContext.cs
 
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Models;
@@ -25,6 +24,13 @@ namespace PolicyManagement.Data
         public DbSet<Package> Package { get; set; } = null!;
         public DbSet<ChangePackageRequest> ChangePackageRequest { get; set; } = null!;
         public DbSet<BeneficiaryRequest> BeneficiaryRequest { get; set; } = null!;
+
+        public DbSet<PackageItemCategory> PackageItemCategories { get; set; } = null!;
+        public DbSet<PackageItem> PackageItems { get; set; } = null!;
+
+        public DbSet<PolicyCustomPackage> PolicyCustomPackages { get; set; } = null!;
+        public DbSet<PolicyCustomPackageItem> PolicyCustomPackageItems { get; set; } = null!;
+
         public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; } = null!;
 
         public DbSet<User> Users { get; set; } = null!;
@@ -57,6 +63,7 @@ namespace PolicyManagement.Data
             base.OnModelCreating(modelBuilder);
 
             ConfigurePolicyManagement(modelBuilder);
+            ConfigureCustomPackageManagement(modelBuilder);
             ConfigureMortuaryManagement(modelBuilder);
             ConfigureDeathNotifications(modelBuilder);
             ConfigureScheduling(modelBuilder);
@@ -130,6 +137,248 @@ namespace PolicyManagement.Data
                 .WithMany()
                 .HasForeignKey(r => r.NewPackageId)
                 .OnDelete(DeleteBehavior.NoAction);
+        }
+
+        private static void ConfigureCustomPackageManagement(
+            ModelBuilder modelBuilder)
+        {
+            // ============================================================
+            // PACKAGE ITEM CATEGORY
+            // ============================================================
+
+            modelBuilder.Entity<PackageItemCategory>(entity =>
+            {
+                entity.HasKey(x => x.CategoryId);
+
+                entity.Property(x => x.CategoryId)
+                    .IsRequired();
+
+                entity.Property(x => x.Name)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(x => x.Description)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.SelectionMode)
+                    .HasConversion<string>()
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(x => x.MinimumSelections)
+                    .IsRequired();
+
+                entity.Property(x => x.MaximumSelections)
+                    .IsRequired();
+
+                entity.Property(x => x.MinimumActiveChoices)
+                    .HasDefaultValue(10)
+                    .IsRequired();
+
+                entity.Property(x => x.IsActive)
+                    .HasDefaultValue(true)
+                    .IsRequired();
+
+                entity.Property(x => x.DisplayOrder)
+                    .HasDefaultValue(0)
+                    .IsRequired();
+
+                entity.Property(x => x.DateCreated)
+                    .IsRequired();
+
+                entity.HasIndex(x => x.Name)
+                    .IsUnique();
+
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.IsActive,
+                        x.DisplayOrder
+                    });
+
+                entity.HasMany(x => x.Items)
+                    .WithOne(x => x.Category)
+                    .HasForeignKey(x => x.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ============================================================
+            // PACKAGE ITEM
+            // ============================================================
+
+            modelBuilder.Entity<PackageItem>(entity =>
+            {
+                entity.HasKey(x => x.PackageItemId);
+
+                entity.Property(x => x.PackageItemId)
+                    .IsRequired();
+
+                entity.Property(x => x.CategoryId)
+                    .IsRequired();
+
+                entity.Property(x => x.Name)
+                    .HasMaxLength(150)
+                    .IsRequired();
+
+                entity.Property(x => x.Description)
+                    .HasMaxLength(1000);
+
+                entity.Property(x => x.ServiceValue)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.MonthlyPremiumContribution)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.ImageBlobName)
+                    .HasMaxLength(500);
+
+                entity.Property(x => x.IsActive)
+                    .HasDefaultValue(true)
+                    .IsRequired();
+
+                entity.Property(x => x.DisplayOrder)
+                    .HasDefaultValue(0)
+                    .IsRequired();
+
+                entity.Property(x => x.DateCreated)
+                    .IsRequired();
+
+                entity.Property(x => x.DateUpdated);
+
+                entity.HasIndex(x => x.CategoryId);
+
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.CategoryId,
+                        x.Name
+                    })
+                    .IsUnique();
+
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.CategoryId,
+                        x.IsActive,
+                        x.DisplayOrder
+                    });
+
+                entity.HasOne(x => x.Category)
+                    .WithMany(x => x.Items)
+                    .HasForeignKey(x => x.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ============================================================
+            // POLICY CUSTOM PACKAGE
+            // ============================================================
+
+            modelBuilder.Entity<PolicyCustomPackage>(entity =>
+            {
+                entity.HasKey(x => x.PolicyCustomPackageId);
+
+                entity.Property(x => x.PolicyCustomPackageId)
+                    .IsRequired();
+
+                entity.Property(x => x.PolicyId)
+                    .IsRequired();
+
+                entity.Property(x => x.BaseMonthlyPremium)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.CustomItemsMonthlyPremium)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.EffectiveMonthlyPremium)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.DateCreated)
+                    .IsRequired();
+
+                entity.Property(x => x.DateUpdated);
+
+                entity.HasOne(x => x.Policy)
+                    .WithMany()
+                    .HasForeignKey(x => x.PolicyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(x => x.Items)
+                    .WithOne(x => x.PolicyCustomPackage)
+                    .HasForeignKey(x => x.PolicyCustomPackageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(x => x.PolicyId);
+            });
+
+            // ============================================================
+            // POLICY CUSTOM PACKAGE ITEM
+            // ============================================================
+
+            modelBuilder.Entity<PolicyCustomPackageItem>(entity =>
+            {
+                entity.HasKey(x => x.PolicyCustomPackageItemId);
+
+                entity.Property(x => x.PolicyCustomPackageItemId)
+                    .IsRequired();
+
+                entity.Property(x => x.PolicyCustomPackageId)
+                    .IsRequired();
+
+                entity.Property(x => x.PackageItemId)
+                    .IsRequired();
+
+                entity.Property(x => x.MonthlyPremiumContribution)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.ServiceValue)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.DateCreated)
+                    .IsRequired();
+
+                // PolicyCustomPackage
+                //      1
+                //      |
+                //      |---- many PolicyCustomPackageItem
+                //
+
+                entity.HasOne(x => x.PolicyCustomPackage)
+                    .WithMany(x => x.Items)
+                    .HasForeignKey(x => x.PolicyCustomPackageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // PackageItem
+                //      1
+                //      |
+                //      |---- many PolicyCustomPackageItem
+                //
+
+                entity.HasOne(x => x.PackageItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.PackageItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(x => x.PolicyCustomPackageId);
+
+                entity.HasIndex(x => x.PackageItemId);
+
+                // Prevent the same catalog item from being
+                // selected twice in the same custom package.
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.PolicyCustomPackageId,
+                        x.PackageItemId
+                    })
+                    .IsUnique();
+            });
         }
 
         private static void ConfigureMortuaryManagement(
@@ -379,7 +628,7 @@ namespace PolicyManagement.Data
                 .HasOne(x => x.Branch)
                 .WithMany(b => b.ServiceRequests)
                 .HasForeignKey(x => x.BranchId)
-                .HasPrincipalKey(b => b.BranchId)
+                .HasPrincipalKey(x => x.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<ServiceRequest>()
@@ -452,7 +701,7 @@ namespace PolicyManagement.Data
                 entity.HasOne(x => x.Branch)
                     .WithMany()
                     .HasForeignKey(x => x.BranchId)
-                    .HasPrincipalKey(x => x.BranchId)
+                    .HasPrincipalKey(b => b.BranchId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(x => x.AssignedStaff)
@@ -463,32 +712,32 @@ namespace PolicyManagement.Data
             });
         }
 
-     private static void ConfigurePaymentManagement(
-    ModelBuilder modelBuilder)
-{
-    modelBuilder.Entity<Payment>(entity =>
-    {
-        entity.Property(payment => payment.Amount)
-            .HasColumnType("decimal(18,2)");
+        private static void ConfigurePaymentManagement(
+            ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Payment>(entity =>
+            {
+                entity.Property(payment => payment.Amount)
+                    .HasColumnType("decimal(18,2)");
 
-        entity.HasOne(payment => payment.Policy)
-            .WithMany()
-            .HasForeignKey(payment => payment.PolicyId)
-            .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(payment => payment.Policy)
+                    .WithMany()
+                    .HasForeignKey(payment => payment.PolicyId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
-        entity.HasIndex(payment => payment.PolicyId);
+                entity.HasIndex(payment => payment.PolicyId);
 
-        entity.HasIndex(payment => payment.DueDate);
+                entity.HasIndex(payment => payment.DueDate);
 
-        entity.HasIndex(
-                payment => new
-                {
-                    payment.PolicyId,
-                    payment.DueDate
-                })
-            .IsUnique();
-    });
-}
+                entity.HasIndex(
+                        payment => new
+                        {
+                            payment.PolicyId,
+                            payment.DueDate
+                        })
+                    .IsUnique();
+            });
+        }
 
         private static void ConfigurePasswordSetupTokens(
             ModelBuilder modelBuilder)

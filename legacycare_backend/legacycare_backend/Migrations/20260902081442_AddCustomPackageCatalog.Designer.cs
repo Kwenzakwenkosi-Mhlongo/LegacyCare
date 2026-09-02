@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PolicyManagement.Data;
 
@@ -11,9 +12,11 @@ using PolicyManagement.Data;
 namespace PolicyManagement.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902081442_AddCustomPackageCatalog")]
+    partial class AddCustomPackageCatalog
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -760,76 +763,6 @@ namespace PolicyManagement.Migrations
                     b.ToTable("Policy");
                 });
 
-            modelBuilder.Entity("PolicyManagement.Models.PolicyCustomPackage", b =>
-                {
-                    b.Property<string>("PolicyCustomPackageId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<decimal>("BaseMonthlyPremium")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("CustomItemsMonthlyPremium")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("DateCreated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DateUpdated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("EffectiveMonthlyPremium")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("PolicyId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("PolicyCustomPackageId");
-
-                    b.HasIndex("PolicyId");
-
-                    b.ToTable("PolicyCustomPackages");
-                });
-
-            modelBuilder.Entity("PolicyManagement.Models.PolicyCustomPackageItem", b =>
-                {
-                    b.Property<string>("PolicyCustomPackageItemId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("DateCreated")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("MonthlyPremiumContribution")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("PackageItemId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("PolicyCustomPackageId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<decimal>("ServiceValue")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("PolicyCustomPackageItemId");
-
-                    b.HasIndex("PackageItemId");
-
-                    b.HasIndex("PolicyCustomPackageId");
-
-                    b.HasIndex("PolicyCustomPackageId", "PackageItemId")
-                        .IsUnique();
-
-                    b.ToTable("PolicyCustomPackageItems");
-                });
-
             modelBuilder.Entity("PolicyManagement.Models.ScheduleManagement.Appointment", b =>
                 {
                     b.Property<int>("AppointmentId")
@@ -1543,36 +1476,6 @@ namespace PolicyManagement.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("PolicyManagement.Models.PolicyCustomPackage", b =>
-                {
-                    b.HasOne("PolicyManagement.Models.Policy", "Policy")
-                        .WithMany()
-                        .HasForeignKey("PolicyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Policy");
-                });
-
-            modelBuilder.Entity("PolicyManagement.Models.PolicyCustomPackageItem", b =>
-                {
-                    b.HasOne("PolicyManagement.Models.PackageItem", "PackageItem")
-                        .WithMany()
-                        .HasForeignKey("PackageItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("PolicyManagement.Models.PolicyCustomPackage", "PolicyCustomPackage")
-                        .WithMany("Items")
-                        .HasForeignKey("PolicyCustomPackageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("PackageItem");
-
-                    b.Navigation("PolicyCustomPackage");
-                });
-
             modelBuilder.Entity("PolicyManagement.Models.ScheduleManagement.Appointment", b =>
                 {
                     b.HasOne("PolicyManagement.Models.UserManagement.Staff", "AssignedStaff")
@@ -1753,11 +1656,6 @@ namespace PolicyManagement.Migrations
             modelBuilder.Entity("PolicyManagement.Models.Policy", b =>
                 {
                     b.Navigation("Beneficiaries");
-                });
-
-            modelBuilder.Entity("PolicyManagement.Models.PolicyCustomPackage", b =>
-                {
-                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("PolicyManagement.Models.ScheduleManagement.Event", b =>

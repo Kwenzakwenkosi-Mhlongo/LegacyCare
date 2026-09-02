@@ -360,6 +360,14 @@ builder.Services.AddScoped<
     ProfilePictureService>();
 
 builder.Services.AddScoped<
+    IPackageItemPictureService,
+    PackageItemPictureService>();
+
+    builder.Services.AddScoped<
+    IPackageCatalogService,
+    PackageCatalogService>();
+
+builder.Services.AddScoped<
     IInvoiceService,
     InvoiceService>();
 
@@ -494,6 +502,14 @@ builder.Services.AddCors(options =>
 var app =
     builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var context =
+        scope.ServiceProvider
+            .GetRequiredService<AppDbContext>();
+
+    await PackageCatalogSeeder.SeedAsync(context);
+}
 
 // =====================================================
 // ENVIRONMENT
