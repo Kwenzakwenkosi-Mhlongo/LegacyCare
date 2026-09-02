@@ -1,8 +1,10 @@
+
 // File:
 // legacycare_backend/legacycare_backend/Models/PackageItem.cs
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace PolicyManagement.Models
 {
@@ -39,6 +41,7 @@ namespace PolicyManagement.Models
         public DateTime? DateUpdated { get; set; }
 
         [ForeignKey(nameof(CategoryId))]
+        [JsonIgnore]
         public virtual PackageItemCategory? Category { get; set; }
 
         public PackageItem()
