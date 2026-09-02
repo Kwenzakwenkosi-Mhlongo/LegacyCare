@@ -12,6 +12,7 @@ obj/
 .env
 .env.*
 !.env.example
+**/appsettings.Development.json
 
 # Visual Studio
 .vs/

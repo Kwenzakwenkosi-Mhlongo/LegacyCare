@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PolicyManagement.Data;
 
@@ -11,9 +12,11 @@ using PolicyManagement.Data;
 namespace PolicyManagement.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902170146_AddPackageChangeRequestItem")]
+    partial class AddPackageChangeRequestItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -155,6 +158,7 @@ namespace PolicyManagement.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NewPackageId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PolicyId")
@@ -163,13 +167,6 @@ namespace PolicyManagement.Migrations
 
                     b.Property<DateTime>("RequestDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("RequestType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasDefaultValue("NormalPackage");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -183,10 +180,6 @@ namespace PolicyManagement.Migrations
                     b.HasIndex("NewPackageId");
 
                     b.HasIndex("PolicyId");
-
-                    b.HasIndex("RequestType");
-
-                    b.HasIndex("Status");
 
                     b.HasIndex("UserId");
 
@@ -1355,7 +1348,8 @@ namespace PolicyManagement.Migrations
                     b.HasOne("PolicyManagement.Models.Package", "NewPackage")
                         .WithMany()
                         .HasForeignKey("NewPackageId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("PolicyManagement.Models.Policy", "Policy")
                         .WithMany()

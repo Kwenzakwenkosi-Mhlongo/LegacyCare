@@ -1,5 +1,5 @@
-
 using Microsoft.EntityFrameworkCore;
+using PolicyManagement.Enums;
 using PolicyManagement.Models;
 using PolicyManagement.Models.MortuaryManagement;
 using PolicyManagement.Models.PaymentManagement;
@@ -30,6 +30,8 @@ namespace PolicyManagement.Data
 
         public DbSet<PolicyCustomPackage> PolicyCustomPackages { get; set; } = null!;
         public DbSet<PolicyCustomPackageItem> PolicyCustomPackageItems { get; set; } = null!;
+
+        public DbSet<PackageChangeRequestItem> PackageChangeRequestItems { get; set; } = null!;
 
         public DbSet<PasswordSetupToken> PasswordSetupTokens { get; set; } = null!;
 
@@ -84,6 +86,10 @@ namespace PolicyManagement.Data
         private static void ConfigurePolicyManagement(
             ModelBuilder modelBuilder)
         {
+            // ============================================================
+            // POLICY
+            // ============================================================
+
             modelBuilder.Entity<Policy>()
                 .HasOne(p => p.User)
                 .WithMany()
@@ -96,11 +102,123 @@ namespace PolicyManagement.Data
                 .HasForeignKey(p => p.PackageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // ============================================================
+            // BENEFICIARY
+            // ============================================================
+
             modelBuilder.Entity<Beneficiary>()
                 .HasOne(b => b.Policy)
                 .WithMany(p => p.Beneficiaries)
                 .HasForeignKey(b => b.PolicyId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // ============================================================
+            // CHANGE PACKAGE REQUEST
+            // ============================================================
+
+            modelBuilder.Entity<ChangePackageRequest>(entity =>
+            {
+                entity.HasKey(x => x.RequestId);
+
+                entity.Property(x => x.RequestId)
+                    .IsRequired();
+
+                entity.Property(x => x.UserId)
+                    .IsRequired();
+
+                entity.Property(x => x.RequestDate)
+                    .IsRequired();
+
+                // --------------------------------------------------------
+                // NewPackageId is nullable because CUSTOM_PACKAGE
+                // requests do not use a predefined Package.
+                // --------------------------------------------------------
+
+                entity.Property(x => x.NewPackageId)
+                    .IsRequired(false);
+
+                // --------------------------------------------------------
+                // RequestType
+                //
+                // Stored as readable text:
+                // NormalPackage = 0
+                // CustomPackage = 1
+                // --------------------------------------------------------
+
+                entity.Property(x => x.RequestType)
+                    .HasConversion<string>()
+                    .HasMaxLength(50)
+                    .HasDefaultValue(
+                        PackageChangeRequestType.NormalPackage)
+                    .IsRequired();
+
+                // --------------------------------------------------------
+                // IMPORTANT:
+                // Status remains an INT.
+                //
+                // Existing database column is currently INT:
+                // Pending  = 0
+                // Approved = 1
+                // Rejected = 2
+                //
+                // Do NOT add HasConversion<string>() here.
+                // --------------------------------------------------------
+
+                entity.Property(x => x.Status)
+                    .IsRequired();
+
+                entity.Property(x => x.ClientId)
+                    .IsRequired();
+
+                entity.Property(x => x.PolicyId)
+                    .IsRequired();
+
+                // --------------------------------------------------------
+                // USER
+                // --------------------------------------------------------
+
+                entity.HasOne(x => x.User)
+                    .WithMany()
+                    .HasForeignKey(x => x.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                // --------------------------------------------------------
+                // POLICY
+                // --------------------------------------------------------
+
+                entity.HasOne(x => x.Policy)
+                    .WithMany()
+                    .HasForeignKey(x => x.PolicyId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                // --------------------------------------------------------
+                // PACKAGE
+                //
+                // Optional because CUSTOM_PACKAGE requests have no
+                // predefined package.
+                // --------------------------------------------------------
+
+                entity.HasOne(x => x.NewPackage)
+                    .WithMany()
+                    .HasForeignKey(x => x.NewPackageId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                // --------------------------------------------------------
+                // INDEXES
+                // --------------------------------------------------------
+
+                entity.HasIndex(x => x.PolicyId);
+
+                entity.HasIndex(x => x.UserId);
+
+                entity.HasIndex(x => x.Status);
+
+                entity.HasIndex(x => x.RequestType);
+            });
+
+            // ============================================================
+            // BENEFICIARY REQUEST
+            // ============================================================
 
             modelBuilder.Entity<BeneficiaryRequest>()
                 .HasOne(r => r.User)
@@ -118,24 +236,6 @@ namespace PolicyManagement.Data
                 .HasOne(r => r.Beneficiary)
                 .WithMany()
                 .HasForeignKey(r => r.BeneficiaryId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            modelBuilder.Entity<ChangePackageRequest>()
-                .HasOne(r => r.User)
-                .WithMany()
-                .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            modelBuilder.Entity<ChangePackageRequest>()
-                .HasOne(r => r.Policy)
-                .WithMany()
-                .HasForeignKey(r => r.PolicyId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            modelBuilder.Entity<ChangePackageRequest>()
-                .HasOne(r => r.NewPackage)
-                .WithMany()
-                .HasForeignKey(r => r.NewPackageId)
                 .OnDelete(DeleteBehavior.NoAction);
         }
 
@@ -343,22 +443,10 @@ namespace PolicyManagement.Data
                 entity.Property(x => x.DateCreated)
                     .IsRequired();
 
-                // PolicyCustomPackage
-                //      1
-                //      |
-                //      |---- many PolicyCustomPackageItem
-                //
-
                 entity.HasOne(x => x.PolicyCustomPackage)
                     .WithMany(x => x.Items)
                     .HasForeignKey(x => x.PolicyCustomPackageId)
                     .OnDelete(DeleteBehavior.Cascade);
-
-                // PackageItem
-                //      1
-                //      |
-                //      |---- many PolicyCustomPackageItem
-                //
 
                 entity.HasOne(x => x.PackageItem)
                     .WithMany()
@@ -369,12 +457,77 @@ namespace PolicyManagement.Data
 
                 entity.HasIndex(x => x.PackageItemId);
 
-                // Prevent the same catalog item from being
-                // selected twice in the same custom package.
                 entity.HasIndex(
                     x => new
                     {
                         x.PolicyCustomPackageId,
+                        x.PackageItemId
+                    })
+                    .IsUnique();
+            });
+
+            // ============================================================
+            // PACKAGE CHANGE REQUEST ITEM
+            // ============================================================
+
+            modelBuilder.Entity<PackageChangeRequestItem>(entity =>
+            {
+                entity.HasKey(x => x.PackageChangeRequestItemId);
+
+                entity.Property(x => x.PackageChangeRequestItemId)
+                    .IsRequired();
+
+                entity.Property(x => x.RequestId)
+                    .IsRequired();
+
+                entity.Property(x => x.PackageItemId)
+                    .IsRequired();
+
+                entity.Property(x => x.MonthlyPremiumContribution)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.ServiceValue)
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                entity.Property(x => x.DateCreated)
+                    .IsRequired();
+
+                // ========================================================
+                // CHANGE PACKAGE REQUEST
+                // 1
+                // |
+                // |---- many PackageChangeRequestItem
+                // ========================================================
+
+                entity.HasOne(x => x.Request)
+                    .WithMany(x => x.Items)
+                    .HasForeignKey(x => x.RequestId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // ========================================================
+                // PACKAGE ITEM
+                // 1
+                // |
+                // |---- many PackageChangeRequestItem
+                // ========================================================
+
+                entity.HasOne(x => x.PackageItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.PackageItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(x => x.RequestId);
+
+                entity.HasIndex(x => x.PackageItemId);
+
+                // Prevent the same catalog item from being selected
+                // twice in the same package change request.
+                entity.HasIndex(
+                    x => new
+                    {
+                        x.RequestId,
                         x.PackageItemId
                     })
                     .IsUnique();
