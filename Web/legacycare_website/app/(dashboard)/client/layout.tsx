@@ -1,3 +1,5 @@
+// File: app/(dashboard)/client/layout.tsx
+
 "use client";
 
 import React from "react";
@@ -22,20 +24,12 @@ export default function ClientLayout({
       href: "/client/policies",
     },
     {
-      name: "Beneficiaries",
-      href: "/client/beneficiaries",
+      name: "Reports",
+      href: "/client/reports",
     },
     {
       name: "Payments",
       href: "/client/payments",
-    },
-    {
-      name: "Bookings",
-      href: "/client/bookings",
-    },
-    {
-      name: "Service Requests",
-      href: "/client/service-requests",
     },
     {
       name: "My Profile",
@@ -43,7 +37,7 @@ export default function ClientLayout({
     },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = (): void => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
@@ -55,13 +49,9 @@ export default function ClientLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* CLIENT NAVIGATION */}
       <header className="border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-
           <div className="flex min-h-20 items-center justify-between gap-4">
-
-            {/* LOGO */}
             <Link
               href="/client"
               className="flex-shrink-0"
@@ -75,7 +65,6 @@ export default function ClientLayout({
               </p>
             </Link>
 
-            {/* NAVIGATION */}
             <nav className="hidden flex-1 items-center justify-center gap-1 lg:flex">
               {navigation.map((item) => {
                 const isActive =
@@ -99,7 +88,6 @@ export default function ClientLayout({
               })}
             </nav>
 
-            {/* LOGOUT */}
             <button
               type="button"
               onClick={handleLogout}
@@ -109,7 +97,6 @@ export default function ClientLayout({
             </button>
           </div>
 
-          {/* MOBILE NAVIGATION */}
           <nav className="flex gap-1 overflow-x-auto pb-3 lg:hidden">
             {navigation.map((item) => {
               const isActive =
@@ -135,7 +122,6 @@ export default function ClientLayout({
         </div>
       </header>
 
-      {/* PAGE CONTENT */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>

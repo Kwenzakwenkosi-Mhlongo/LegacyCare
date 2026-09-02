@@ -463,13 +463,32 @@ namespace PolicyManagement.Data
             });
         }
 
-        private static void ConfigurePaymentManagement(
-            ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<Payment>()
-                .Property(p => p.Amount)
-                .HasColumnType("decimal(18,2)");
-        }
+     private static void ConfigurePaymentManagement(
+    ModelBuilder modelBuilder)
+{
+    modelBuilder.Entity<Payment>(entity =>
+    {
+        entity.Property(payment => payment.Amount)
+            .HasColumnType("decimal(18,2)");
+
+        entity.HasOne(payment => payment.Policy)
+            .WithMany()
+            .HasForeignKey(payment => payment.PolicyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        entity.HasIndex(payment => payment.PolicyId);
+
+        entity.HasIndex(payment => payment.DueDate);
+
+        entity.HasIndex(
+                payment => new
+                {
+                    payment.PolicyId,
+                    payment.DueDate
+                })
+            .IsUnique();
+    });
+}
 
         private static void ConfigurePasswordSetupTokens(
             ModelBuilder modelBuilder)

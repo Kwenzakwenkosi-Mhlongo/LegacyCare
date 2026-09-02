@@ -1,4 +1,6 @@
-// File: Service/PaymentManagement/PaymentService.cs
+// File:
+// legacycare_backend/legacycare_backend/
+// Service/PaymentManagement/PaymentService.cs
 
 using Microsoft.EntityFrameworkCore;
 using PolicyManagement.Data;
@@ -11,8 +13,6 @@ namespace PolicyManagement.Service.PaymentManagement
 {
     public class PaymentService : IPaymentService
     {
-        private const int PaymentPeriodDays = 30;
-
         private readonly AppDbContext _context;
 
         public PaymentService(
@@ -61,6 +61,7 @@ namespace PolicyManagement.Service.PaymentManagement
                     payment.Policy.UserId == userId &&
                     payment.Status == PaymentStatus.SUCCESSFUL)
                 .OrderByDescending(payment => payment.PaymentDate)
+                .ThenByDescending(payment => payment.DueDate)
                 .ToList();
         }
 
@@ -135,7 +136,8 @@ namespace PolicyManagement.Service.PaymentManagement
         {
             ValidateUserId(userId);
 
-            var today = DateTime.UtcNow.Date;
+            var today =
+                DateTime.UtcNow.Date;
 
             return _context.Payment
                 .AsNoTracking()
@@ -143,11 +145,8 @@ namespace PolicyManagement.Service.PaymentManagement
                     .ThenInclude(policy => policy.Package)
                 .Where(payment =>
                     payment.Policy.UserId == userId &&
-                    (
-                        payment.Status == PaymentStatus.PENDING ||
-                        payment.Status == PaymentStatus.FAILED
-                    ) &&
-                    payment.DueDate.Date <= today)
+                    payment.Status == PaymentStatus.PENDING &&
+                    payment.DueDate.Date < today)
                 .OrderBy(payment => payment.DueDate)
                 .ToList();
         }
@@ -160,35 +159,38 @@ namespace PolicyManagement.Service.PaymentManagement
 
             if (string.IsNullOrWhiteSpace(keyword))
             {
-                return GetPaymentsByUser(userId);
+                return GetPaymentsByUser(
+                    userId);
             }
 
-            keyword = keyword.Trim().ToLower();
+            var normalizedKeyword =
+                keyword.Trim();
 
-            return _context.Payment
+            var payments = _context.Payment
                 .AsNoTracking()
                 .Include(payment => payment.Policy)
                     .ThenInclude(policy => policy.Package)
                 .Where(payment =>
-                    payment.Policy.UserId == userId &&
-                    (
-                        payment.PaymentId
-                            .ToLower()
-                            .Contains(keyword) ||
-                        payment.PolicyId
-                            .ToLower()
-                            .Contains(keyword) ||
-                        payment.Method
-                            .ToString()
-                            .ToLower()
-                            .Contains(keyword) ||
-                        payment.Status
-                            .ToString()
-                            .ToLower()
-                            .Contains(keyword)
-                    ))
+                    payment.Policy.UserId == userId)
                 .OrderByDescending(payment => payment.DueDate)
                 .ToList();
+
+            return payments.Where(payment =>
+                ContainsIgnoreCase(
+                    payment.PaymentId,
+                    normalizedKeyword) ||
+                ContainsIgnoreCase(
+                    payment.PolicyId,
+                    normalizedKeyword) ||
+                ContainsIgnoreCase(
+                    payment.Status.ToString(),
+                    normalizedKeyword) ||
+                (
+                    payment.Method.HasValue &&
+                    ContainsIgnoreCase(
+                        payment.Method.Value.ToString(),
+                        normalizedKeyword)
+                ));
         }
 
         public Payment MakePayment(
@@ -197,13 +199,24 @@ namespace PolicyManagement.Service.PaymentManagement
         {
             ValidateUserId(userId);
 
+            if (request == null)
+            {
+                throw new ArgumentNullException(
+                    nameof(request));
+            }
+
+            ValidateOnlinePaymentMethod(
+                request.Method);
+
             var policy = GetOwnedActivePolicy(
                 request.PolicyId,
                 userId);
 
-            var package = GetRequiredPackage(policy);
+            var package =
+                GetRequiredPackage(
+                    policy);
 
-            var existingOutstandingPayment =
+            var payablePayment =
                 _context.Payment
                     .Include(payment => payment.Policy)
                         .ThenInclude(item => item.Package)
@@ -216,25 +229,37 @@ namespace PolicyManagement.Service.PaymentManagement
                     .OrderBy(payment => payment.DueDate)
                     .FirstOrDefault();
 
-            if (existingOutstandingPayment != null)
+            if (payablePayment != null)
             {
-                existingOutstandingPayment.Method =
-                    request.Method;
+                if (payablePayment.Status == PaymentStatus.FAILED)
+                {
+                    payablePayment.MarkPending();
+                }
 
-                return existingOutstandingPayment;
+                payablePayment.SelectPaymentMethod(
+                    request.Method);
+
+                _context.SaveChanges();
+
+                return payablePayment;
             }
 
             var nextDueDate =
                 CalculateNextPaymentDueDate(
                     policy);
 
-            var payment = new Payment(
-                (decimal)package.MonthlyPremium,
-                request.Method,
-                policy.PolicyId,
-                nextDueDate);
+            var payment =
+                new Payment(
+                    (decimal)package.MonthlyPremium,
+                    policy.PolicyId,
+                    nextDueDate);
 
-            _context.Payment.Add(payment);
+            payment.SelectPaymentMethod(
+                request.Method);
+
+            _context.Payment.Add(
+                payment);
+
             _context.SaveChanges();
 
             return payment;
@@ -246,6 +271,16 @@ namespace PolicyManagement.Service.PaymentManagement
             PaymentMethodType method)
         {
             ValidateUserId(userId);
+
+            if (string.IsNullOrWhiteSpace(paymentId))
+            {
+                throw new ArgumentException(
+                    "Payment ID is required.",
+                    nameof(paymentId));
+            }
+
+            ValidateOnlinePaymentMethod(
+                method);
 
             var payment = _context.Payment
                 .Include(item => item.Policy)
@@ -260,26 +295,30 @@ namespace PolicyManagement.Service.PaymentManagement
                     "Payment not found.");
             }
 
-            if (
-                payment.Status != PaymentStatus.PENDING &&
+            if (payment.Status == PaymentStatus.SUCCESSFUL)
+            {
+                throw new InvalidOperationException(
+                    "This payment has already been completed successfully.");
+            }
+
+            if (payment.Status != PaymentStatus.PENDING &&
                 payment.Status != PaymentStatus.FAILED)
             {
                 throw new InvalidOperationException(
-                    $"Payment has already been {payment.Status.ToString().ToLower()}.");
+                    "This payment cannot be confirmed.");
             }
 
-            ValidatePayment(
+            ValidatePaymentForConfirmation(
                 payment,
-                userId,
-                method);
+                userId);
 
             if (payment.Status == PaymentStatus.FAILED)
             {
                 payment.MarkPending();
             }
 
-            payment.Method = method;
-            payment.MarkSuccessful();
+            payment.MarkSuccessful(
+                method);
 
             _context.SaveChanges();
 
@@ -292,11 +331,14 @@ namespace PolicyManagement.Service.PaymentManagement
         {
             ValidateUserId(userId);
 
-            var policy = GetOwnedActivePolicy(
-                policyId,
-                userId);
+            var policy =
+                GetOwnedActivePolicy(
+                    policyId,
+                    userId);
 
-            var package = GetRequiredPackage(policy);
+            var package =
+                GetRequiredPackage(
+                    policy);
 
             var nextDueDate =
                 CalculateNextPaymentDueDate(
@@ -313,13 +355,19 @@ namespace PolicyManagement.Service.PaymentManagement
                     $"A payment already exists for the due date {nextDueDate:yyyy-MM-dd}.");
             }
 
-            var payment = new Payment(
-                (decimal)package.MonthlyPremium,
-                PaymentMethodType.CARD,
-                policy.PolicyId,
-                nextDueDate);
+            /*
+             * A monthly premium is only a scheduled obligation.
+             * Card/EFT is selected when the client chooses to pay.
+             */
+            var payment =
+                new Payment(
+                    (decimal)package.MonthlyPremium,
+                    policy.PolicyId,
+                    nextDueDate);
 
-            _context.Payment.Add(payment);
+            _context.Payment.Add(
+                payment);
+
             _context.SaveChanges();
 
             return payment;
@@ -327,15 +375,19 @@ namespace PolicyManagement.Service.PaymentManagement
 
         public void GenerateMonthlyPaymentsForAllPolicies()
         {
-            var activePolicies = _context.Policy
-                .Include(policy => policy.Package)
-                .Where(policy =>
-                    policy.Status == PolicyStatus.Active)
-                .ToList();
+            var activePolicies =
+                _context.Policy
+                    .Include(policy => policy.Package)
+                    .Where(policy =>
+                        policy.Status == PolicyStatus.Active)
+                    .ToList();
 
-            var today = DateTime.UtcNow.Date;
+            var today =
+                DateTime.UtcNow.Date;
 
-            foreach (var policy in activePolicies)
+            foreach (
+                var policy
+                in activePolicies)
             {
                 GenerateMissingPaymentPeriods(
                     policy,
@@ -349,9 +401,12 @@ namespace PolicyManagement.Service.PaymentManagement
             Policy policy,
             DateTime today)
         {
-            var package = GetRequiredPackage(policy);
+            var package =
+                GetRequiredPackage(
+                    policy);
 
-            var paymentNumber = 1;
+            var paymentNumber =
+                1;
 
             while (true)
             {
@@ -360,14 +415,9 @@ namespace PolicyManagement.Service.PaymentManagement
                         policy.StartDate,
                         paymentNumber);
 
-                if (dueDate > today)
-                {
-                    break;
-                }
-
-                if (
-                    policy.EndDate.HasValue &&
-                    dueDate > policy.EndDate.Value.Date)
+                if (policy.EndDate.HasValue &&
+                    dueDate.Date >
+                    policy.EndDate.Value.Date)
                 {
                     break;
                 }
@@ -379,13 +429,27 @@ namespace PolicyManagement.Service.PaymentManagement
 
                 if (existingPayment == null)
                 {
-                    var payment = new Payment(
-                        (decimal)package.MonthlyPremium,
-                        PaymentMethodType.CARD,
-                        policy.PolicyId,
-                        dueDate);
+                    /*
+                     * Generated premiums remain PENDING and have
+                     * no payment method until the client pays.
+                     */
+                    var payment =
+                        new Payment(
+                            (decimal)package.MonthlyPremium,
+                            policy.PolicyId,
+                            dueDate);
 
-                    _context.Payment.Add(payment);
+                    _context.Payment.Add(
+                        payment);
+                }
+
+                /*
+                 * Historical periods are generated through today.
+                 * One next/upcoming premium is also generated.
+                 */
+                if (dueDate.Date > today)
+                {
+                    break;
                 }
 
                 paymentNumber++;
@@ -397,13 +461,16 @@ namespace PolicyManagement.Service.PaymentManagement
         {
             var existingDueDates =
                 _context.Payment
+                    .AsNoTracking()
                     .Where(payment =>
-                        payment.PolicyId == policy.PolicyId)
+                        payment.PolicyId ==
+                        policy.PolicyId)
                     .Select(payment =>
                         payment.DueDate)
                     .ToList();
 
-            var paymentNumber = 1;
+            var paymentNumber =
+                1;
 
             while (true)
             {
@@ -420,9 +487,8 @@ namespace PolicyManagement.Service.PaymentManagement
 
                 if (!exists)
                 {
-                    if (
-                        policy.EndDate.HasValue &&
-                        dueDate >
+                    if (policy.EndDate.HasValue &&
+                        dueDate.Date >
                         policy.EndDate.Value.Date)
                     {
                         throw new InvalidOperationException(
@@ -440,18 +506,9 @@ namespace PolicyManagement.Service.PaymentManagement
             DateTime policyStartDate,
             int paymentNumber)
         {
-            if (paymentNumber < 1)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(paymentNumber),
-                    "Payment number must be at least 1.");
-            }
-
-            return policyStartDate
-                .Date
-                .AddDays(
-                    PaymentPeriodDays *
-                    paymentNumber);
+            return Payment.CalculateDueDate(
+                policyStartDate,
+                paymentNumber);
         }
 
         private Payment? FindPaymentForDueDate(
@@ -482,11 +539,12 @@ namespace PolicyManagement.Service.PaymentManagement
                     nameof(policyId));
             }
 
-            var policy = _context.Policy
-                .Include(item => item.Package)
-                .FirstOrDefault(item =>
-                    item.PolicyId == policyId &&
-                    item.UserId == userId);
+            var policy =
+                _context.Policy
+                    .Include(item => item.Package)
+                    .FirstOrDefault(item =>
+                        item.PolicyId == policyId &&
+                        item.UserId == userId);
 
             if (policy == null)
             {
@@ -500,7 +558,8 @@ namespace PolicyManagement.Service.PaymentManagement
                     "Payments can only be made for active policies.");
             }
 
-            GetRequiredPackage(policy);
+            GetRequiredPackage(
+                policy);
 
             return policy;
         }
@@ -514,30 +573,23 @@ namespace PolicyManagement.Service.PaymentManagement
                     "Policy package information was not found.");
             }
 
+            if (policy.Package.MonthlyPremium <= 0)
+            {
+                throw new InvalidOperationException(
+                    "The policy package has an invalid monthly premium.");
+            }
+
             return policy.Package;
         }
 
-        private void ValidatePayment(
+        private static void ValidatePaymentForConfirmation(
             Payment payment,
-            string userId,
-            PaymentMethodType method)
+            string userId)
         {
             if (payment.Amount <= 0)
             {
                 throw new InvalidOperationException(
                     "Invalid payment amount.");
-            }
-
-            var paymentMethod =
-                _context.PaymentMethod
-                    .FirstOrDefault(item =>
-                        item.UserId == userId &&
-                        item.Method == method);
-
-            if (paymentMethod == null)
-            {
-                throw new InvalidOperationException(
-                    "No payment method found. Please add a payment method.");
             }
 
             if (payment.Policy == null)
@@ -546,12 +598,33 @@ namespace PolicyManagement.Service.PaymentManagement
                     "Policy information not found.");
             }
 
-            if (
-                payment.Policy.Status !=
-                PolicyStatus.Active)
+            if (payment.Policy.UserId != userId)
+            {
+                throw new InvalidOperationException(
+                    "This payment does not belong to the current client.");
+            }
+
+            if (payment.Policy.Status != PolicyStatus.Active)
             {
                 throw new InvalidOperationException(
                     "Payments can only be made for active policies.");
+            }
+        }
+
+        private static void ValidateOnlinePaymentMethod(
+            PaymentMethodType method)
+        {
+            if (method == PaymentMethodType.CASH)
+            {
+                throw new InvalidOperationException(
+                    "Cash payments are not supported. Please use Card or EFT.");
+            }
+
+            if (method != PaymentMethodType.CARD &&
+                method != PaymentMethodType.EFT)
+            {
+                throw new InvalidOperationException(
+                    "Only Card and EFT payments are supported.");
             }
         }
 
@@ -565,5 +638,165 @@ namespace PolicyManagement.Service.PaymentManagement
                     nameof(userId));
             }
         }
+
+        private static bool ContainsIgnoreCase(
+            string? value,
+            string keyword)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.Contains(
+                       keyword,
+                       StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
+
+
+// ============================================================
+// RESULTING PAYMENT RULES
+// ============================================================
+//
+// PaymentStatus:
+//
+// 0 = PENDING
+// 1 = SUCCESSFUL
+// 2 = FAILED
+//
+//
+// PaymentMethod:
+//
+// null = client has not selected a method yet
+// 0    = CASH -> REJECTED
+// 1    = CARD
+// 2    = EFT
+//
+//
+// Overdue:
+//
+// Status == PENDING
+// AND
+// DueDate < today's UTC date
+//
+//
+// FAILED is NOT Overdue.
+//
+//
+// Monthly due dates:
+//
+// StartDate.AddMonths(1)
+// StartDate.AddMonths(2)
+// StartDate.AddMonths(3)
+// ...
+//
+//
+// Example:
+//
+// Policy StartDate:
+// 2026-04-10
+//
+// Premium:
+// R850
+//
+// Records:
+//
+// 2026-05-10  R850  PENDING  Method=null
+// 2026-06-10  R850  PENDING  Method=null
+// 2026-07-10  R850  PENDING  Method=null
+// 2026-08-10  R850  PENDING  Method=null
+// 2026-09-10  R850  PENDING  Method=null
+//
+//
+// Client clicks Pay Now:
+//
+// CARD:
+// Method = CARD
+// -> card screen/process
+// -> ConfirmPayment()
+// -> SUCCESSFUL
+//
+//
+// EFT:
+// Method = EFT
+// -> EFT screen/process
+// -> ConfirmPayment()
+// -> SUCCESSFUL
+//
+//
+// CASH:
+// rejected
+//
+//
+// ============================================================
+// AFTER REPLACING THIS FILE
+// ============================================================
+//
+// PowerShell:
+//
+// cd "C:\MAIN PROJECT\OOPS\OOPS\legacycare_backend\legacycare_backend"
+//
+// dotnet build
+//
+//
+// If build succeeds, and Method is now nullable in Payment.cs:
+//
+// dotnet ef migrations add UpdatePaymentScheduleAndNullableMethod
+//
+// dotnet ef database update
+//
+//
+// ============================================================
+// TO SEE WHAT YOU CURRENTLY HAVE IN SQL
+// ============================================================
+//
+// Run this first in Azure SQL / SSMS:
+//
+// SELECT
+//     TABLE_SCHEMA,
+//     TABLE_NAME
+// FROM INFORMATION_SCHEMA.TABLES
+// WHERE TABLE_NAME LIKE '%Payment%';
+//
+//
+// If the table is dbo.Payment:
+//
+// SELECT
+//     PaymentId,
+//     PolicyId,
+//     Amount,
+//     DueDate,
+//     PaymentDate,
+//     Status,
+//     Method
+// FROM dbo.Payment
+// ORDER BY DueDate DESC;
+//
+//
+// Human-readable:
+//
+// SELECT
+//     PaymentId,
+//     PolicyId,
+//     Amount,
+//     DueDate,
+//     PaymentDate,
+//
+//     CASE Status
+//         WHEN 0 THEN 'PENDING'
+//         WHEN 1 THEN 'SUCCESSFUL'
+//         WHEN 2 THEN 'FAILED'
+//         ELSE 'UNKNOWN'
+//     END AS PaymentStatus,
+//
+//     CASE
+//         WHEN Method IS NULL THEN 'NOT SELECTED'
+//         WHEN Method = 0 THEN 'CASH'
+//         WHEN Method = 1 THEN 'CARD'
+//         WHEN Method = 2 THEN 'EFT'
+//         ELSE 'UNKNOWN'
+//     END AS PaymentMethod
+//
+// FROM dbo.Payment
+// ORDER BY DueDate DESC;
+//
+//
+// ============================================================

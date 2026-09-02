@@ -1,10 +1,16 @@
 // ============================================================
-// File: Controllers/PaymentController.cs
+// FILE 8
+// Path:
+// legacycare_backend/legacycare_backend/
+// Controllers/PaymentController.cs
+//
+// FULL REPLACEMENT
 // ============================================================
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PolicyManagement.DTOs.Requests;
+using PolicyManagement.Enums;
 using PolicyManagement.Service.PaymentManagement;
 
 namespace PolicyManagement.Controllers
@@ -12,21 +18,31 @@ namespace PolicyManagement.Controllers
     [Route("api/[controller]")]
     [Authorize]
     public class PaymentController(
-        IPaymentService paymentService) : BaseController
+        IPaymentService paymentService,
+        IPaymentScheduleService paymentScheduleService)
+        : BaseController
     {
-        private readonly IPaymentService _paymentService = paymentService;
+        private readonly IPaymentService _paymentService =
+            paymentService;
+
+        private readonly IPaymentScheduleService _paymentScheduleService =
+            paymentScheduleService;
 
         [HttpGet]
         [Authorize(Roles = "Client")]
-        public IActionResult GetClientPayments()
+        public async Task<IActionResult> GetClientPayments(
+            CancellationToken cancellationToken)
         {
             try
             {
-                var payments =
-                    _paymentService.GetPaymentsByUser(
-                        UserId);
+                await _paymentScheduleService
+                    .GenerateMissingPaymentsForUserAsync(
+                        UserId,
+                        cancellationToken);
 
-                return Ok(payments);
+                return Ok(
+                    _paymentService.GetPaymentsByUser(
+                        UserId));
             }
             catch (Exception ex)
             {
@@ -36,15 +52,19 @@ namespace PolicyManagement.Controllers
 
         [HttpGet("history")]
         [Authorize(Roles = "Client")]
-        public IActionResult GetPaymentHistory()
+        public async Task<IActionResult> GetPaymentHistory(
+            CancellationToken cancellationToken)
         {
             try
             {
-                var payments =
-                    _paymentService.GetPaymentHistory(
-                        UserId);
+                await _paymentScheduleService
+                    .GenerateMissingPaymentsForUserAsync(
+                        UserId,
+                        cancellationToken);
 
-                return Ok(payments);
+                return Ok(
+                    _paymentService.GetPaymentHistory(
+                        UserId));
             }
             catch (Exception ex)
             {
@@ -54,15 +74,19 @@ namespace PolicyManagement.Controllers
 
         [HttpGet("outstanding")]
         [Authorize(Roles = "Client")]
-        public IActionResult GetOutstandingPayments()
+        public async Task<IActionResult> GetOutstandingPayments(
+            CancellationToken cancellationToken)
         {
             try
             {
-                var payments =
-                    _paymentService.GetOutstandingPayments(
-                        UserId);
+                await _paymentScheduleService
+                    .GenerateMissingPaymentsForUserAsync(
+                        UserId,
+                        cancellationToken);
 
-                return Ok(payments);
+                return Ok(
+                    _paymentService.GetOutstandingPayments(
+                        UserId));
             }
             catch (Exception ex)
             {
@@ -72,21 +96,120 @@ namespace PolicyManagement.Controllers
 
         [HttpGet("policy/{policyId}")]
         [Authorize(Roles = "Client")]
-        public IActionResult GetPaymentsByPolicy(
-            string policyId)
+        public async Task<IActionResult> GetPaymentsByPolicy(
+            string policyId,
+            CancellationToken cancellationToken)
         {
             try
             {
-                var payments =
+                /*
+                 * First call enforces the current ownership rule.
+                 */
+                _paymentService.GetPaymentsByPolicy(
+                    UserId,
+                    policyId);
+
+                await _paymentScheduleService
+                    .GenerateMissingPaymentsForPolicyAsync(
+                        policyId,
+                        cancellationToken);
+
+                return Ok(
                     _paymentService.GetPaymentsByPolicy(
                         UserId,
-                        policyId);
-
-                return Ok(payments);
+                        policyId));
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("{paymentId}/select-method")]
+        [Authorize(Roles = "Client")]
+        public IActionResult SelectMethod(
+            string paymentId,
+            [FromBody] SelectPaymentMethodRequest request)
+        {
+            try
+            {
+                if (request.Method == PaymentMethodType.CASH)
+                {
+                    return BadRequest(
+                        "Cash payments are not supported.");
+                }
+
+                /*
+                 * Existing GetPaymentById confirms ownership.
+                 * Actual persistence should be added to PaymentService.
+                 */
+                var payment =
+                    _paymentService.GetPaymentById(
+                        paymentId,
+                        UserId);
+
+                payment.SelectPaymentMethod(
+                    request.Method);
+
+                return Ok(
+                    new
+                    {
+                        payment.PaymentId,
+                        payment.Method,
+
+                        nextStep =
+                            request.Method == PaymentMethodType.CARD
+                                ? "card"
+                                : "eft"
+                    });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("{paymentId}/confirm")]
+        [Authorize(Roles = "Client")]
+        public IActionResult ConfirmPayment(
+            string paymentId,
+            [FromBody] ConfirmPaymentRequest request)
+        {
+            try
+            {
+                if (request.Method == PaymentMethodType.CASH)
+                {
+                    return BadRequest(
+                        "Cash payments are not supported.");
+                }
+
+                var payment =
+                    _paymentService.ConfirmPayment(
+                        paymentId,
+                        UserId,
+                        request.Method);
+
+                return Ok(payment);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -101,6 +224,12 @@ namespace PolicyManagement.Controllers
         {
             try
             {
+                if (request.Method == PaymentMethodType.CASH)
+                {
+                    return BadRequest(
+                        "Cash payments are not supported.");
+                }
+
                 var payment =
                     _paymentService.MakePayment(
                         UserId,
@@ -129,69 +258,13 @@ namespace PolicyManagement.Controllers
             }
         }
 
-        [HttpPost("{paymentId}/confirm")]
-        [Authorize(Roles = "Client")]
-        public IActionResult ConfirmPayment(
-            string paymentId,
-            [FromBody] ConfirmPaymentRequest request)
-        {
-            try
-            {
-                var payment =
-                    _paymentService.ConfirmPayment(
-                        paymentId,
-                        UserId,
-                        request.Method);
-
-                return Ok(payment);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
         [HttpPost("policy/{policyId}/monthly")]
         [Authorize(Roles = "Client")]
         public IActionResult CreateMonthlyPayment(
             string policyId)
         {
-            try
-            {
-                var payment =
-                    _paymentService.CreateMonthlyPayment(
-                        policyId,
-                        UserId);
-
-                return CreatedAtAction(
-                    nameof(GetPaymentById),
-                    new
-                    {
-                        paymentId =
-                            payment.PaymentId
-                    },
-                    payment);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return BadRequest(
+                "Monthly premiums are generated automatically.");
         }
 
         [HttpGet("search")]
@@ -201,12 +274,10 @@ namespace PolicyManagement.Controllers
         {
             try
             {
-                var payments =
+                return Ok(
                     _paymentService.SearchPayments(
                         UserId,
-                        keyword);
-
-                return Ok(payments);
+                        keyword));
             }
             catch (Exception ex)
             {
@@ -221,12 +292,10 @@ namespace PolicyManagement.Controllers
         {
             try
             {
-                var payment =
+                return Ok(
                     _paymentService.GetPaymentById(
                         paymentId,
-                        UserId);
-
-                return Ok(payment);
+                        UserId));
             }
             catch (KeyNotFoundException ex)
             {
@@ -244,10 +313,8 @@ namespace PolicyManagement.Controllers
         {
             try
             {
-                var payments =
-                    _paymentService.GetAllPayments();
-
-                return Ok(payments);
+                return Ok(
+                    _paymentService.GetAllPayments());
             }
             catch (Exception ex)
             {
@@ -257,18 +324,23 @@ namespace PolicyManagement.Controllers
 
         [HttpPost("admin/generate-monthly")]
         [Authorize(Roles = "Admin")]
-        public IActionResult GenerateMonthlyPayments()
+        public async Task<IActionResult> GenerateMonthlyPayments(
+            CancellationToken cancellationToken)
         {
             try
             {
-                _paymentService
-                    .GenerateMonthlyPaymentsForAllPolicies();
+                var created =
+                    await _paymentScheduleService
+                        .GenerateMissingPaymentsAsync(
+                            cancellationToken);
 
                 return Ok(
                     new
                     {
                         message =
-                            "30-day payment records generated successfully."
+                            "Monthly premium records generated successfully.",
+
+                        created
                     });
             }
             catch (Exception ex)

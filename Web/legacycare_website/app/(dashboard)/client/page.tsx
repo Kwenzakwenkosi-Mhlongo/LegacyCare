@@ -1,16 +1,444 @@
+// File: app/(dashboard)/client/page.tsx
+
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import { getToken } from "@/lib/auth";
+
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api"
+)
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .replace(/;$/, "")
+  .replace(/\/+$/, "");
+
+const AVAILABLE_SERVICE_TYPES = 8;
+
+type ServiceRequest = {
+  serviceRequestId: number;
+
+  clientId?: string | null;
+
+  branchId?: string | null;
+  branchName?: string | null;
+
+  requestType?: string | null;
+  status?: string | null;
+  priority?: string | null;
+
+  description?: string | null;
+
+  createdDate?: string | null;
+  updatedDate?: string | null;
+  dueDate?: string | null;
+
+  appointmentDateTime?: string | null;
+
+  additionalFee?: number | null;
+};
+
+type Beneficiary = {
+  beneficiaryId?: string | number;
+  fullName?: string | null;
+  relationship?: string | null;
+};
+
+type Policy = {
+  policyId: string;
+  userId: string;
+
+  clientName: string;
+
+  packageId: string;
+  packageName: string;
+
+  startDate: string;
+  endDate?: string | null;
+
+  monthlyPremium: number;
+
+  status: string;
+
+  beneficiaries?: Beneficiary[];
+};
+
+function normalizeStatus(
+  value?: string | null
+): string {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+function isOpenRequest(
+  status?: string | null
+): boolean {
+  const normalizedStatus =
+    normalizeStatus(status);
+
+  if (!normalizedStatus) {
+    return false;
+  }
+
+  const closedStatuses =
+    new Set([
+      "approved",
+      "rejected",
+      "completed",
+      "cancelled",
+      "canceled",
+      "noshow",
+      "closed",
+      "delivered",
+    ]);
+
+  return !closedStatuses.has(
+    normalizedStatus
+  );
+}
+
+function formatCurrency(
+  value: number
+): string {
+  return new Intl.NumberFormat(
+    "en-ZA",
+    {
+      style: "currency",
+      currency: "ZAR",
+      minimumFractionDigits: 2,
+    }
+  ).format(value);
+}
 
 export default function ClientPage() {
+  const [
+    serviceRequests,
+    setServiceRequests,
+  ] = useState<ServiceRequest[]>([]);
+
+  const [
+    policies,
+    setPolicies,
+  ] = useState<Policy[]>([]);
+
+  const [
+    loadingRequests,
+    setLoadingRequests,
+  ] = useState(true);
+
+  const [
+    loadingPolicies,
+    setLoadingPolicies,
+  ] = useState(true);
+
+  const [
+    requestsError,
+    setRequestsError,
+  ] = useState("");
+
+  const [
+    policiesError,
+    setPoliciesError,
+  ] = useState("");
+
   useEffect(() => {
-    document.title = "Client Dashboard";
+    document.title =
+      "Client Dashboard";
   }, []);
+
+  useEffect(() => {
+    const loadDashboard =
+      async (): Promise<void> => {
+        const token =
+          getToken();
+
+        if (!token) {
+          setRequestsError(
+            "You are not logged in."
+          );
+
+          setPoliciesError(
+            "You are not logged in."
+          );
+
+          setLoadingRequests(
+            false
+          );
+
+          setLoadingPolicies(
+            false
+          );
+
+          return;
+        }
+
+        const headers = {
+          Accept:
+            "application/json",
+
+          Authorization:
+            `Bearer ${token}`,
+        };
+
+        const [
+          requestsResult,
+          policiesResult,
+        ] =
+          await Promise.allSettled([
+            fetch(
+              `${API_URL}/ServiceRequest/client`,
+              {
+                method:
+                  "GET",
+
+                headers,
+
+                cache:
+                  "no-store",
+              }
+            ),
+
+            fetch(
+              `${API_URL}/Policy/client`,
+              {
+                method:
+                  "GET",
+
+                headers,
+
+                cache:
+                  "no-store",
+              }
+            ),
+          ]);
+
+        try {
+          if (
+            requestsResult.status !==
+            "fulfilled"
+          ) {
+            throw new Error(
+              "Unable to load service requests."
+            );
+          }
+
+          const response =
+            requestsResult.value;
+
+          const data =
+            await response
+              .json()
+              .catch(
+                () => null
+              );
+
+          if (!response.ok) {
+            throw new Error(
+              data?.message ||
+                `Unable to load service requests (${response.status}).`
+            );
+          }
+
+          setServiceRequests(
+            Array.isArray(data)
+              ? data
+              : []
+          );
+
+          setRequestsError("");
+        } catch (error) {
+          console.error(
+            "[CLIENT DASHBOARD] SERVICE REQUEST ERROR:",
+            error
+          );
+
+          setServiceRequests([]);
+
+          setRequestsError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load service requests."
+          );
+        } finally {
+          setLoadingRequests(false);
+        }
+
+        try {
+          if (
+            policiesResult.status !==
+            "fulfilled"
+          ) {
+            throw new Error(
+              "Unable to load policies."
+            );
+          }
+
+          const response =
+            policiesResult.value;
+
+          const data =
+            await response
+              .json()
+              .catch(
+                () => null
+              );
+
+          if (!response.ok) {
+            throw new Error(
+              data?.message ||
+                `Unable to load policies (${response.status}).`
+            );
+          }
+
+          const loadedPolicies =
+            Array.isArray(data)
+              ? data
+              : [];
+
+          setPolicies(
+            loadedPolicies
+          );
+
+          setPoliciesError("");
+
+          console.log(
+            "[CLIENT DASHBOARD] POLICIES:",
+            loadedPolicies
+          );
+        } catch (error) {
+          console.error(
+            "[CLIENT DASHBOARD] POLICY ERROR:",
+            error
+          );
+
+          setPolicies([]);
+
+          setPoliciesError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load policies."
+          );
+        } finally {
+          setLoadingPolicies(false);
+        }
+      };
+
+    void loadDashboard();
+  }, []);
+
+  const requestSummary =
+    useMemo(
+      () => {
+        const total =
+          serviceRequests.length;
+
+        const open =
+          serviceRequests.filter(
+            (request) =>
+              isOpenRequest(
+                request.status
+              )
+          ).length;
+
+        return {
+          total,
+          open,
+        };
+      },
+      [serviceRequests]
+    );
+
+  const policySummary =
+    useMemo(
+      () => {
+        const activePolicies =
+          policies.filter(
+            (policy) =>
+              normalizeStatus(
+                policy.status
+              ) ===
+              "active"
+          );
+
+        const packages =
+          Array.from(
+            new Set(
+              activePolicies
+                .map(
+                  (policy) =>
+                    policy.packageName
+                      ?.trim()
+                )
+                .filter(Boolean)
+            )
+          );
+
+        const monthlyPremium =
+          activePolicies.reduce(
+            (
+              total,
+              policy
+            ) =>
+              total +
+              (
+                Number(
+                  policy.monthlyPremium
+                ) ||
+                0
+              ),
+            0
+          );
+
+        const beneficiaryCount =
+          activePolicies.reduce(
+            (
+              total,
+              policy
+            ) =>
+              total +
+              (
+                Array.isArray(
+                  policy.beneficiaries
+                )
+                  ? policy
+                      .beneficiaries
+                      .length
+                  : 0
+              ),
+            0
+          );
+
+        return {
+          activeCount:
+            activePolicies.length,
+
+          packages:
+            packages.length > 0
+              ? packages.join(", ")
+              : "Not available",
+
+          monthlyPremium,
+
+          beneficiaryCount,
+
+          totalPolicies:
+            policies.length,
+        };
+      },
+      [policies]
+    );
 
   return (
     <div className="space-y-6">
-      {/* PAGE HEADER */}
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">
           Client Dashboard
@@ -21,10 +449,9 @@ export default function ClientPage() {
         </p>
       </div>
 
-      {/* SERVICE REQUESTS */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-          <div>
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+          <div className="max-w-2xl">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-2xl text-teal-700">
                 📋
@@ -36,285 +463,232 @@ export default function ClientPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-600">
-                  Request and manage LegacyCare services.
+                  Start new services and view your complete request history.
                 </p>
               </div>
             </div>
 
-            <p className="mt-4 max-w-2xl text-sm text-gray-600">
-              Submit a request for a funeral service, appointment,
-              quotation, support, or other LegacyCare services.
+            <p className="mt-4 text-sm leading-6 text-gray-600">
+              LegacyCare provides 8 service request types: Report a Death,
+              Funeral, Appointment, Quote, Policy Enquiry, Payment Enquiry,
+              Documents and General Support.
             </p>
+
+            <div className="mt-4 rounded-xl border border-teal-100 bg-teal-50 p-4">
+              <p className="text-sm font-medium text-teal-900">
+                Your full request history is available under Service Requests.
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-teal-700">
+               🕊️ Track your full request history in one place — including death reports, 
+               ⚰️ funeral requests, 📅 appointments, 💰 quotes, 🔄 package changes,
+              👨‍👩‍👧 beneficiary changes, 📄 policy enquiries, 💳 payment enquiries,
+               📑 document requests, and 💬 general support.
+              </p>
+            </div>
           </div>
 
           <Link
             href="/client/service-requests"
             className="inline-flex w-fit items-center justify-center rounded-lg bg-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
           >
-            Request a Service →
-          </Link>
-        </div>
-      </div>
-
-      {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* POLICY */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                My Policy
-              </p>
-
-              <h2 className="mt-2 text-2xl font-semibold text-gray-900">
-                Active
-              </h2>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-              🛡️
-            </div>
-          </div>
-
-          <Link
-            href="/client/policies"
-            className="mt-4 inline-block text-sm font-medium text-teal-600 hover:text-teal-700"
-          >
-            View Policy →
+            View Service Requests & History →
           </Link>
         </div>
 
-        {/* BENEFICIARIES */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Beneficiaries
-              </p>
-
-              <h2 className="mt-2 text-2xl font-semibold text-gray-900">
-                View
-              </h2>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-              👥
-            </div>
-          </div>
-
-          <Link
-            href="/client/beneficiaries"
-            className="mt-4 inline-block text-sm font-medium text-teal-600 hover:text-teal-700"
-          >
-            Manage Beneficiaries →
-          </Link>
-        </div>
-
-        {/* PAYMENTS */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Payments
-              </p>
-
-              <h2 className="mt-2 text-2xl font-semibold text-gray-900">
-                View
-              </h2>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
-              💳
-            </div>
-          </div>
-
-          <Link
-            href="/client/payments"
-            className="mt-4 inline-block text-sm font-medium text-teal-600 hover:text-teal-700"
-          >
-            View Payments →
-          </Link>
-        </div>
-      </div>
-
-      {/* POLICY SUMMARY */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-gray-900">
-            My Policy
-          </h2>
-
-          <p className="text-sm text-gray-500">
-            Your current LegacyCare policy information.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-          <div>
-            <p className="text-sm text-gray-500">
-              Policy Status
+        <div className="mt-6 grid grid-cols-1 gap-4 border-t border-gray-100 pt-6 sm:grid-cols-3">
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Requests Sent
             </p>
 
-            <span className="mt-2 inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-              Active
-            </span>
-          </div>
-
-          <div>
-            <p className="text-sm text-gray-500">
-              Package
+            <p className="mt-2 text-2xl font-semibold text-gray-900">
+              {loadingRequests
+                ? "..."
+                : requestSummary.total}
             </p>
 
-            <p className="mt-2 font-medium text-gray-900">
-              My Funeral Package
+            <p className="mt-1 text-xs text-gray-500">
+              Service requests submitted
             </p>
           </div>
 
-          <div>
-            <p className="text-sm text-gray-500">
-              Monthly Premium
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Open Requests
             </p>
 
-            <p className="mt-2 font-medium text-gray-900">
-              R0.00
+            <p className="mt-2 text-2xl font-semibold text-teal-700">
+              {loadingRequests
+                ? "..."
+                : requestSummary.open}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Requests still in progress
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Available Services
+            </p>
+
+            <p className="mt-2 text-2xl font-semibold text-gray-900">
+              {AVAILABLE_SERVICE_TYPES}
+            </p>
+
+            <p className="mt-1 text-xs text-gray-500">
+              Service request types available
             </p>
           </div>
         </div>
 
-        <div className="mt-6">
-          <Link
-            href="/client/policies"
-            className="inline-flex rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-teal-700"
-          >
-            View Full Policy
-          </Link>
-        </div>
-      </div>
-
-      {/* QUICK ACTIONS */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Quick Actions
-        </h2>
-
-        <p className="mt-1 text-sm text-gray-500">
-          Quickly access your LegacyCare services.
-        </p>
-
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {/* SERVICE REQUESTS */}
-          <Link
-            href="/client/service-requests"
-            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
-          >
-            <div className="text-2xl">
-              📋
-            </div>
-
-            <p className="mt-3 font-medium text-gray-900">
-              Service Requests
+        {requestsError ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-700">
+              {requestsError}
             </p>
+          </div>
+        ) : null}
+      </section>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Request a service, appointment, quote or support.
-            </p>
-          </Link>
-
-          {/* PROFILE */}
-          <Link
-            href="/client/profile"
-            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
-          >
-            <div className="text-2xl">
-              👤
-            </div>
-
-            <p className="mt-3 font-medium text-gray-900">
-              My Profile
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              View your details.
-            </p>
-          </Link>
-
-          {/* POLICIES */}
-          <Link
-            href="/client/policies"
-            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
-          >
-            <div className="text-2xl">
-              🛡️
-            </div>
-
-            <p className="mt-3 font-medium text-gray-900">
-              My Policies
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              View policy information.
-            </p>
-          </Link>
-
-          {/* BENEFICIARIES */}
-          <Link
-            href="/client/beneficiaries"
-            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
-          >
-            <div className="text-2xl">
-              👥
-            </div>
-
-            <p className="mt-3 font-medium text-gray-900">
-              Beneficiaries
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Manage beneficiaries.
-            </p>
-          </Link>
-
-          {/* PAYMENTS */}
-          <Link
-            href="/client/payments"
-            className="rounded-xl border border-gray-200 p-4 transition hover:border-teal-500 hover:bg-teal-50"
-          >
-            <div className="text-2xl">
-              💳
-            </div>
-
-            <p className="mt-3 font-medium text-gray-900">
-              Payments
-            </p>
-
-            <p className="mt-1 text-sm text-gray-500">
-              View payment history.
-            </p>
-          </Link>
-        </div>
-      </div>
-
-      {/* BOOKINGS */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              Bookings
+              Account Overview
             </h2>
 
             <p className="mt-1 text-sm text-gray-500">
-              View and manage your LegacyCare bookings.
+              Your current LegacyCare policy information.
             </p>
           </div>
 
-          <Link
-            href="/client/bookings"
-            className="inline-flex w-fit rounded-lg border border-teal-600 px-5 py-2.5 text-sm font-medium text-teal-600 hover:bg-teal-50"
-          >
-            View Bookings
-          </Link>
+          {!loadingPolicies &&
+          !policiesError &&
+          policySummary.totalPolicies >
+            0 ? (
+            <span className="w-fit rounded-full bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
+              {
+                policySummary.totalPolicies
+              }{" "}
+              {policySummary.totalPolicies ===
+              1
+                ? "policy"
+                : "policies"}{" "}
+              linked
+            </span>
+          ) : null}
         </div>
-      </div>
+
+        {loadingPolicies ? (
+          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[0, 1, 2].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="h-24 animate-pulse rounded-xl bg-gray-100"
+                />
+              )
+            )}
+          </div>
+        ) : policiesError ? (
+          <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-800">
+              Policy information is temporarily unavailable.
+            </p>
+
+            <p className="mt-1 text-xs text-amber-700">
+              {policiesError}
+            </p>
+          </div>
+        ) : policies.length ===
+          0 ? (
+          <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-5">
+            <p className="text-sm font-medium text-gray-900">
+              No policies found
+            </p>
+
+            <p className="mt-1 text-sm text-gray-500">
+              There are currently no policies linked to your account.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-500">
+                  Active Policies
+                </p>
+
+                <p className="mt-2 text-2xl font-semibold text-green-700">
+                  {
+                    policySummary.activeCount
+                  }
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Currently active coverage
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-500">
+                  Current Packages
+                </p>
+
+                <p className="mt-2 text-sm font-semibold text-gray-900">
+                  {
+                    policySummary.packages
+                  }
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Packages on active policies
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-500">
+                  Monthly Premium
+                </p>
+
+                <p className="mt-2 text-lg font-semibold text-gray-900">
+                  {formatCurrency(
+                    policySummary.monthlyPremium
+                  )}
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Combined active policy premium
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-5">
+              <div>
+                <p className="text-xs text-gray-500">
+                  Beneficiaries covered across active policies
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-gray-900">
+                  {
+                    policySummary.beneficiaryCount
+                  }
+                </p>
+              </div>
+
+              <Link
+                href="/client/policies"
+                className="text-sm font-medium text-teal-600 transition hover:text-teal-700"
+              >
+                View policies →
+              </Link>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }

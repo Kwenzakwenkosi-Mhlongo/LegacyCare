@@ -1,218 +1,636 @@
+// ============================================================================
+// FILE 2
+// Web/legacycare_website/app/(dashboard)/client/service-requests/funeral/[id]/page.tsx
+// ============================================================================
+
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useParams,
+  useRouter,
+} from "next/navigation";
+
 import { getToken } from "@/lib/auth";
 
-const API_URL =
+const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api";
+  "https://legacycare-api-2026-dackfxd3g9e0f8hw.southafricanorth-01.azurewebsites.net/api"
+)
+  .trim()
+  .replace(/^["']|["']$/g, "")
+  .replace(/;$/, "")
+  .replace(/\/+$/, "");
+
 type DeathNotification = {
   deathNotificationId: string;
-  requestNumber: string;
-  dateOfDeath: string;
-  status: string;
+  requestNumber?: string | null;
+  beneficiaryId?: string | null;
+  beneficiaryName?: string | null;
+  dateOfDeath?: string | null;
+  status?: string | number | null;
+
   beneficiary?: {
-    beneficiaryId: string;
-    fullName: string;
+    beneficiaryId?: string | null;
+    fullName?: string | null;
   } | null;
 };
 
-const funeralTypes = [
+type FuneralRequest = {
+  funeralRequestId: string;
+  deathNotificationId: string;
+  status?: string | null;
+};
+
+const FUNERAL_TYPES = [
   {
     value: "Standard",
     label: "Standard Funeral",
     description:
-      "Our standard funeral service, suitable for most arrangements.",
+      "A standard funeral arrangement with LegacyCare coordination.",
   },
   {
     value: "Large",
     label: "Large Funeral",
     description:
-      "For larger gatherings requiring additional staff and coordination.",
+      "For larger gatherings that may require additional coordination.",
   },
 ];
 
-export default function FuneralArrangementPage() {
-  const router = useRouter();
-  const params = useParams();
+function normalizeStatus(
+  value?: string | number | null
+): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
 
-  // This is the Death Notification ID (from the button's URL).
-  const deathNotificationId = String(params?.id ?? "");
+function isApproved(
+  value?: string | number | null
+): boolean {
+  const status =
+    normalizeStatus(value);
 
-  const [notification, setNotification] =
-    useState<DeathNotification | null>(null);
+  return (
+    status === "approved" ||
+    status === "1"
+  );
+}
 
-  const [loadingNotification, setLoadingNotification] =
-    useState(true);
-
-  const [funeralDate, setFuneralDate] = useState("");
-  const [funeralTime, setFuneralTime] = useState("");
-  const [venue, setVenue] = useState("");
-  const [funeralType, setFuneralType] = useState("Standard");
-  const [notes, setNotes] = useState("");
-
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  function getAuthToken() {
-    return getToken();
+function formatDate(
+  value?: string | null
+): string {
+  if (!value) {
+    return "Not available";
   }
 
-  // =========================================================
-  // LOAD DEATH NOTIFICATION (for display + status confirmation)
-  // =========================================================
+  const date =
+    new Date(value);
 
-  useEffect(() => {
-    if (!deathNotificationId) return;
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "Not available";
+  }
 
-    const loadNotification = async () => {
-      try {
-        setLoadingNotification(true);
-        setError("");
-
-        const token = getAuthToken();
-
-        if (!token) {
-          router.replace("/login");
-          return;
-        }
-
-        const response = await fetch(
-          `${API_URL}/DeathNotification/${deathNotificationId}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(
-            data?.message ||
-              `Unable to load death notification (${response.status}).`
-          );
-        }
-
-        setNotification(data);
-
-        if (data.status !== "Approved") {
-          setError(
-            "This death notification has not been approved yet. Funeral arrangements can only be made after approval."
-          );
-        }
-      } catch (err) {
-        console.error("Load death notification error:", err);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to load death notification."
-        );
-      } finally {
-        setLoadingNotification(false);
-      }
-    };
-
-    loadNotification();
-  }, [deathNotificationId, router]);
-
-  // =========================================================
-  // SUBMIT
-  // =========================================================
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    setError("");
-
-    if (!funeralDate) {
-      setError("Please select a funeral date.");
-      return;
+  return date.toLocaleDateString(
+    "en-ZA",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     }
+  );
+}
 
-    if (!funeralTime) {
-      setError("Please select a funeral time.");
-      return;
+function getBeneficiaryName(
+  notification: DeathNotification
+): string {
+  return (
+    notification.beneficiaryName ||
+    notification.beneficiary
+      ?.fullName ||
+    notification.beneficiaryId ||
+    "Beneficiary"
+  );
+}
+
+function extractErrorMessage(
+  data: unknown,
+  fallback: string
+): string {
+  if (
+    data &&
+    typeof data === "object" &&
+    "message" in data
+  ) {
+    const message =
+      (
+        data as {
+          message?: unknown;
+        }
+      ).message;
+
+    if (
+      typeof message ===
+      "string"
+    ) {
+      return message;
     }
+  }
 
-    if (!venue.trim()) {
-      setError("Please provide a venue.");
-      return;
-    }
+  if (
+    typeof data === "string"
+  ) {
+    return data;
+  }
 
-    const funeralDateTime = new Date(
-      `${funeralDate}T${funeralTime}:00`
+  return fallback;
+}
+
+export default function FuneralArrangementPage() {
+  const router =
+    useRouter();
+
+  const params =
+    useParams();
+
+  const deathNotificationId =
+    String(
+      params.id ?? ""
     );
 
-    if (Number.isNaN(funeralDateTime.getTime())) {
-      setError("Invalid date or time.");
+  const [
+    notification,
+    setNotification,
+  ] =
+    useState<
+      DeathNotification | null
+    >(null);
+
+  const [
+    existingFuneral,
+    setExistingFuneral,
+  ] =
+    useState<
+      FuneralRequest | null
+    >(null);
+
+  const [
+    funeralDate,
+    setFuneralDate,
+  ] =
+    useState("");
+
+  const [
+    funeralTime,
+    setFuneralTime,
+  ] =
+    useState("");
+
+  const [
+    venue,
+    setVenue,
+  ] =
+    useState("");
+
+  const [
+    funeralType,
+    setFuneralType,
+  ] =
+    useState("Standard");
+
+  const [
+    notes,
+    setNotes,
+  ] =
+    useState("");
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+  const [
+    submitting,
+    setSubmitting,
+  ] =
+    useState(false);
+
+  const [
+    error,
+    setError,
+  ] =
+    useState("");
+
+  const [
+    success,
+    setSuccess,
+  ] =
+    useState("");
+
+  const minimumDate =
+    useMemo(
+      () => {
+        const date =
+          new Date();
+
+        return date
+          .toISOString()
+          .split("T")[0];
+      },
+      []
+    );
+
+  useEffect(() => {
+    document.title =
+      "Funeral Arrangement | LegacyCare";
+
+    if (
+      !deathNotificationId
+    ) {
+      setError(
+        "Death notification ID is missing."
+      );
+
+      setLoading(false);
+
       return;
     }
 
-    if (funeralDateTime.getTime() <= Date.now()) {
-      setError("The funeral date and time must be in the future.");
+    const loadPage =
+      async (): Promise<void> => {
+        try {
+          setLoading(true);
+          setError("");
+
+          const token =
+            getToken();
+
+          if (!token) {
+            router.replace(
+              "/login"
+            );
+
+            return;
+          }
+
+          const headers = {
+            Accept:
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          };
+
+          const [
+            deathResponse,
+            funeralsResponse,
+          ] =
+            await Promise.all([
+              fetch(
+                `${API_URL}/DeathNotification/client`,
+                {
+                  method:
+                    "GET",
+
+                  headers,
+
+                  cache:
+                    "no-store",
+                }
+              ),
+
+              fetch(
+                `${API_URL}/FuneralRequest/client`,
+                {
+                  method:
+                    "GET",
+
+                  headers,
+
+                  cache:
+                    "no-store",
+                }
+              ),
+            ]);
+
+          const deathData =
+            await deathResponse
+              .json()
+              .catch(
+                () => null
+              );
+
+          if (
+            !deathResponse.ok
+          ) {
+            throw new Error(
+              extractErrorMessage(
+                deathData,
+                `Unable to load death notification (${deathResponse.status}).`
+              )
+            );
+          }
+
+          const notifications:
+            DeathNotification[] =
+            Array.isArray(
+              deathData
+            )
+              ? deathData
+              : [];
+
+          const currentNotification =
+            notifications.find(
+              (item) =>
+                String(
+                  item.deathNotificationId
+                ).toLowerCase() ===
+                deathNotificationId.toLowerCase()
+            );
+
+          if (
+            !currentNotification
+          ) {
+            throw new Error(
+              "Death notification was not found or does not belong to your account."
+            );
+          }
+
+          setNotification(
+            currentNotification
+          );
+
+          const funeralsData =
+            await funeralsResponse
+              .json()
+              .catch(
+                () => null
+              );
+
+          if (
+            !funeralsResponse.ok
+          ) {
+            throw new Error(
+              extractErrorMessage(
+                funeralsData,
+                `Unable to check existing funeral requests (${funeralsResponse.status}).`
+              )
+            );
+          }
+
+          const funerals:
+            FuneralRequest[] =
+            Array.isArray(
+              funeralsData
+            )
+              ? funeralsData
+              : [];
+
+          const duplicate =
+            funerals.find(
+              (funeral) =>
+                String(
+                  funeral.deathNotificationId
+                ).toLowerCase() ===
+                deathNotificationId.toLowerCase()
+            );
+
+          setExistingFuneral(
+            duplicate || null
+          );
+
+          if (
+            !isApproved(
+              currentNotification.status
+            )
+          ) {
+            setError(
+              "This death notification has not been approved. Funeral arrangements can only be submitted after approval."
+            );
+          }
+        } catch (err) {
+          console.error(
+            "[Funeral Create] LOAD ERROR:",
+            err
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load funeral arrangement."
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
+
+    void loadPage();
+  }, [
+    deathNotificationId,
+    router,
+  ]);
+
+  async function handleSubmit(
+    event: FormEvent
+  ): Promise<void> {
+    event.preventDefault();
+
+    setError("");
+    setSuccess("");
+
+    if (
+      !notification
+    ) {
+      setError(
+        "Death notification could not be loaded."
+      );
+
       return;
     }
 
-    setSubmitting(true);
+    if (
+      !isApproved(
+        notification.status
+      )
+    ) {
+      setError(
+        "This death notification must be approved before a funeral can be arranged."
+      );
+
+      return;
+    }
+
+    if (
+      existingFuneral
+    ) {
+      setError(
+        "A funeral request already exists for this death notification."
+      );
+
+      return;
+    }
+
+    if (
+      !funeralDate
+    ) {
+      setError(
+        "Please select a funeral date."
+      );
+
+      return;
+    }
+
+    if (
+      !funeralTime
+    ) {
+      setError(
+        "Please select a funeral time."
+      );
+
+      return;
+    }
+
+    if (
+      !venue.trim()
+    ) {
+      setError(
+        "Please provide the funeral venue."
+      );
+
+      return;
+    }
+
+    const funeralDateTime =
+      new Date(
+        `${funeralDate}T${funeralTime}:00`
+      );
+
+    if (
+      Number.isNaN(
+        funeralDateTime.getTime()
+      )
+    ) {
+      setError(
+        "Please provide a valid funeral date and time."
+      );
+
+      return;
+    }
+
+    if (
+      funeralDateTime.getTime() <=
+      Date.now()
+    ) {
+      setError(
+        "The funeral date and time must be in the future."
+      );
+
+      return;
+    }
 
     try {
-      const token = getAuthToken();
+      setSubmitting(true);
+
+      const token =
+        getToken();
 
       if (!token) {
-        router.replace("/login");
+        router.replace(
+          "/login"
+        );
+
         return;
       }
 
-      // ========================================================
-      // IMPORTANT:
-      // Backend FuneralTime is a TimeSpan. ASP.NET Core's default
-      // JSON binder expects the "c" format: "HH:mm:ss".
-      // ========================================================
+      const response =
+        await fetch(
+          `${API_URL}/FuneralRequest`,
+          {
+            method:
+              "POST",
 
-      const timeWithSeconds = `${funeralTime}:00`;
+            headers: {
+              Accept:
+                "application/json",
 
-      const response = await fetch(`${API_URL}/FuneralRequest`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          deathNotificationId,
-          funeralDate: `${funeralDate}T00:00:00`,
-          funeralTime: timeWithSeconds,
-          venue: venue.trim(),
-          funeralType,
-          notes: notes.trim() || null,
-        }),
-      });
+              "Content-Type":
+                "application/json",
 
-      const data = await response.json().catch(() => null);
+              Authorization:
+                `Bearer ${token}`,
+            },
 
-      if (!response.ok) {
+            body:
+              JSON.stringify({
+                deathNotificationId,
+
+                funeralDate:
+                  `${funeralDate}T00:00:00`,
+
+                funeralTime:
+                  `${funeralTime}:00`,
+
+                venue:
+                  venue.trim(),
+
+                funeralType,
+
+                notes:
+                  notes.trim() ||
+                  null,
+              }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(
+            () => null
+          );
+
+      if (
+        !response.ok
+      ) {
         throw new Error(
-          data?.message ||
+          extractErrorMessage(
+            data,
             `Unable to submit funeral request (${response.status}).`
+          )
         );
       }
 
-      setSuccess(
-        "Your funeral arrangement request has been submitted. LegacyCare will review it shortly."
-      );
+      setExistingFuneral({
+        funeralRequestId:
+          data?.funeralRequestId ||
+          "",
 
-      setTimeout(() => {
-        router.push("/client/service-requests");
-      }, 1500);
+        deathNotificationId,
+
+        status:
+          data?.status ||
+          "Pending",
+      });
+
+      setSuccess(
+        "Your funeral arrangement has been submitted successfully. LegacyCare will now review the request and arrange the required operational staff."
+      );
     } catch (err) {
-      console.error("Funeral request error:", err);
+      console.error(
+        "[Funeral Create] SUBMIT ERROR:",
+        err
+      );
 
       setError(
         err instanceof Error
@@ -224,41 +642,33 @@ export default function FuneralArrangementPage() {
     }
   }
 
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (loadingNotification) {
+  if (loading) {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
           <div className="animate-pulse space-y-5">
             <div className="h-7 w-64 rounded bg-gray-200" />
             <div className="h-4 w-80 rounded bg-gray-200" />
-            <div className="h-32 rounded-xl bg-gray-200" />
+            <div className="h-32 rounded-xl bg-gray-100" />
           </div>
         </div>
       </div>
     );
   }
 
-  const notApproved =
-    notification != null && notification.status !== "Approved";
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-
-      {/* HEADER */}
-
       <div>
         <button
           type="button"
           onClick={() =>
-            router.push("/client/service-requests")
+            router.push(
+              "/client/service-requests/funeral"
+            )
           }
           className="mb-4 text-sm font-medium text-teal-600 hover:text-teal-700"
         >
-          ← Back to Service Requests
+          ← Funeral Arrangements
         </button>
 
         <h1 className="text-2xl font-semibold text-gray-900">
@@ -266,252 +676,387 @@ export default function FuneralArrangementPage() {
         </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          {notification?.beneficiary
-            ? `Provide the details for ${notification.beneficiary.fullName}'s funeral.`
-            : "Provide the details for the funeral arrangement."}
+          Provide the funeral details for LegacyCare review.
         </p>
       </div>
 
-      {/* DEATH NOTIFICATION SUMMARY */}
+      {notification ? (
+        <section className="rounded-2xl border border-green-200 bg-green-50 p-6">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">
+              🕊️
+            </div>
 
-      {notification && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Beneficiary
+              <h2 className="font-semibold text-green-900">
+                Approved Death Notification
+              </h2>
+
+              <p className="mt-1 text-sm text-green-800">
+                {getBeneficiaryName(
+                  notification
+                )}
               </p>
-              <p className="mt-1 font-medium text-gray-900">
-                {notification.beneficiary?.fullName ||
-                  notification.beneficiary?.beneficiaryId ||
-                  "Not available"}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-green-700">
+                Notification
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-gray-900">
+                {notification.requestNumber ||
+                  notification.deathNotificationId}
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Death Notification
+              <p className="text-xs text-green-700">
+                Date of Death
               </p>
-              <p className="mt-1 font-medium text-gray-900">
-                {notification.requestNumber}
-              </p>
-            </div>
 
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Death Date
-              </p>
-              <p className="mt-1 font-medium text-gray-900">
-                {new Date(notification.dateOfDeath).toLocaleDateString(
-                  "en-ZA",
-                  { day: "2-digit", month: "short", year: "numeric" }
+              <p className="mt-1 text-sm font-semibold text-gray-900">
+                {formatDate(
+                  notification.dateOfDeath
                 )}
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs text-green-700">
                 Status
               </p>
-              <p className="mt-1 font-medium text-green-700">
-                {notification.status}
+
+              <p className="mt-1 text-sm font-semibold text-green-700">
+                {isApproved(
+                  notification.status
+                )
+                  ? "Approved"
+                  : String(
+                      notification.status
+                    )}
               </p>
             </div>
           </div>
+        </section>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+          {error}
         </div>
-      )}
+      ) : null}
 
-      {/* NOT APPROVED — BLOCK THE FORM */}
+      {existingFuneral ? (
+        <section className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+          <h2 className="font-semibold text-blue-900">
+            ✅ Funeral request already submitted
+          </h2>
 
-      {notApproved && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-          <p className="text-sm font-medium text-amber-800">
-            This death notification has not been approved yet.
-            Funeral arrangements can only be made after approval.
+          <p className="mt-2 text-sm text-blue-700">
+            A funeral arrangement already exists for this death notification.
+            Another request cannot be created.
           </p>
-        </div>
-      )}
 
-      {/* ERROR */}
+          <p className="mt-3 text-sm font-medium text-blue-900">
+            Status:{" "}
+            {existingFuneral.status ||
+              "Pending"}
+          </p>
 
-      {error && !notApproved && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5">
-          <p className="text-sm font-medium text-red-700">{error}</p>
-        </div>
-      )}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/client/service-requests/funeral"
+              )
+            }
+            className="mt-4 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            View Funeral Requests
+          </button>
+        </section>
+      ) : null}
 
-      {/* SUCCESS */}
+      {success ? (
+        <section className="rounded-2xl border border-green-200 bg-green-50 p-6">
+          <h2 className="font-semibold text-green-900">
+            ✅ Funeral request submitted
+          </h2>
 
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
-          <p className="text-sm font-medium text-green-700">
+          <p className="mt-2 text-sm leading-6 text-green-800">
             {success}
           </p>
-        </div>
-      )}
 
-      {/* FORM */}
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                "/client/service-requests/funeral"
+              )
+            }
+            className="mt-5 rounded-lg bg-green-700 px-5 py-2.5 text-sm font-semibold text-white"
+          >
+            View Funeral Requests
+          </button>
+        </section>
+      ) : null}
 
-      {!notApproved && !success && (
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-        >
-          {/* FUNERAL TYPE */}
+      {notification &&
+      isApproved(
+        notification.status
+      ) &&
+      !existingFuneral &&
+      !success ? (
+        <>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+            <p className="font-semibold text-blue-900">
+              ⚰️ What happens next?
+            </p>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Funeral Type
-            </label>
+            <p className="mt-2 text-sm leading-6 text-blue-800">
+              After submission the request remains Pending. A Clerk reviews the
+              arrangement, assigns the required operational staff and can then
+              approve or reject the funeral request.
+            </p>
+          </div>
 
-            <div className="mt-3 space-y-3">
-              {funeralTypes.map((type) => (
-                <label
-                  key={type.value}
-                  className={`block cursor-pointer rounded-xl border p-4 transition ${
-                    funeralType === type.value
-                      ? "border-teal-500 bg-teal-50"
-                      : "border-gray-200 hover:border-teal-300"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="radio"
-                      name="funeralType"
-                      value={type.value}
-                      checked={funeralType === type.value}
-                      onChange={(e) =>
-                        setFuneralType(e.target.value)
+          <form
+            onSubmit={
+              handleSubmit
+            }
+            className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Funeral Type
+              </label>
+
+              <div className="mt-3 space-y-3">
+                {FUNERAL_TYPES.map(
+                  (type) => (
+                    <label
+                      key={
+                        type.value
                       }
-                      className="mt-1"
-                    />
+                      className={`block cursor-pointer rounded-xl border p-4 ${
+                        funeralType ===
+                        type.value
+                          ? "border-teal-500 bg-teal-50"
+                          : "border-gray-200 hover:border-teal-300"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="funeralType"
+                          value={
+                            type.value
+                          }
+                          checked={
+                            funeralType ===
+                            type.value
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setFuneralType(
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          className="mt-1"
+                        />
 
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {type.label}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {type.description}
-                      </p>
-                    </div>
-                  </div>
-                </label>
-              ))}
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {
+                              type.label
+                            }
+                          </p>
+
+                          <p className="mt-1 text-sm text-gray-500">
+                            {
+                              type.description
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </label>
+                  )
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* DATE */}
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="funeralDate"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Funeral Date
+                </label>
 
-          <div className="mt-6">
-            <label
-              htmlFor="funeralDate"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Funeral Date
-            </label>
+                <input
+                  id="funeralDate"
+                  type="date"
+                  required
+                  min={
+                    minimumDate
+                  }
+                  value={
+                    funeralDate
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setFuneralDate(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                />
+              </div>
 
-            <input
-              id="funeralDate"
-              type="date"
-              value={funeralDate}
-              min={new Date().toISOString().split("T")[0]}
-              onChange={(e) => setFuneralDate(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-          </div>
+              <div>
+                <label
+                  htmlFor="funeralTime"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Funeral Time
+                </label>
 
-          {/* TIME */}
+                <input
+                  id="funeralTime"
+                  type="time"
+                  required
+                  value={
+                    funeralTime
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setFuneralTime(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+                />
+              </div>
+            </div>
 
-          <div className="mt-6">
-            <label
-              htmlFor="funeralTime"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Funeral Time
-            </label>
+            <div className="mt-6">
+              <label
+                htmlFor="venue"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Funeral Venue
+              </label>
 
-            <input
-              id="funeralTime"
-              type="time"
-              value={funeralTime}
-              onChange={(e) => setFuneralTime(e.target.value)}
-              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-          </div>
+              <input
+                id="venue"
+                type="text"
+                required
+                maxLength={
+                  250
+                }
+                value={
+                  venue
+                }
+                onChange={(
+                  event
+                ) =>
+                  setVenue(
+                    event
+                      .target
+                      .value
+                  )
+                }
+                placeholder="e.g. St Mary's Church, 12 Main Road, Johannesburg"
+                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3"
+              />
+            </div>
 
-          {/* VENUE */}
+            <div className="mt-6">
+              <label
+                htmlFor="notes"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Additional Notes
+                <span className="ml-1 font-normal text-gray-400">
+                  (optional)
+                </span>
+              </label>
 
-          <div className="mt-6">
-            <label
-              htmlFor="venue"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Venue
-            </label>
+              <textarea
+                id="notes"
+                rows={5}
+                maxLength={
+                  1500
+                }
+                value={
+                  notes
+                }
+                onChange={(
+                  event
+                ) =>
+                  setNotes(
+                    event
+                      .target
+                      .value
+                  )
+                }
+                placeholder="Any accessibility needs, special arrangements, venue instructions or other information LegacyCare should know..."
+                className="mt-2 w-full resize-y rounded-lg border border-gray-300 px-4 py-3"
+              />
 
-            <input
-              id="venue"
-              type="text"
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. St. Mary's Church, 12 Main Road, Johannesburg"
-              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-          </div>
-
-          {/* NOTES */}
-
-          <div className="mt-6">
-            <label
-              htmlFor="notes"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Additional Notes
-            </label>
-
-            <textarea
-              id="notes"
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any special requests or information LegacyCare should know..."
-              className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            />
-          </div>
-
-          {/* ERROR (inside form, for submit-time errors) */}
-
-          {error && (
-            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
-              <p className="text-sm font-medium text-red-700">
-                {error}
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {
+                  notes.length
+                }
+                /1500
               </p>
             </div>
-          )}
 
-          {/* BUTTONS */}
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={
+                  submitting
+                }
+                onClick={() =>
+                  router.push(
+                    "/client/service-requests/funeral"
+                  )
+                }
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700"
+              >
+                Cancel
+              </button>
 
-          <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={() =>
-                router.push("/client/service-requests")
-              }
-              className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? "Submitting..." : "Submit Funeral Request"}
-            </button>
-          </div>
-        </form>
-      )}
+              <button
+                type="submit"
+                disabled={
+                  submitting
+                }
+                className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+              >
+                {submitting
+                  ? "Submitting..."
+                  : "Submit Funeral Request"}
+              </button>
+            </div>
+          </form>
+        </>
+      ) : null}
     </div>
   );
 }
+

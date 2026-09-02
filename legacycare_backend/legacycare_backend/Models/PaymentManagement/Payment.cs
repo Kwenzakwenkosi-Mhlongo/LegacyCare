@@ -1,4 +1,6 @@
-// File: Models/PaymentManagement/Payment.cs
+// File:
+// legacycare_backend/legacycare_backend/
+// Models/PaymentManagement/Payment.cs
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -8,8 +10,6 @@ namespace PolicyManagement.Models.PaymentManagement
 {
     public class Payment
     {
-        private const int PaymentPeriodDays = 30;
-
         [Key]
         public string PaymentId { get; set; }
 
@@ -22,8 +22,7 @@ namespace PolicyManagement.Models.PaymentManagement
         [Required]
         public DateTime DueDate { get; set; }
 
-        [Required]
-        public PaymentMethodType Method { get; set; }
+        public PaymentMethodType? Method { get; set; }
 
         [Required]
         public PaymentStatus Status { get; set; }
@@ -37,15 +36,163 @@ namespace PolicyManagement.Models.PaymentManagement
         public Payment()
         {
             PaymentId = Guid.NewGuid().ToString();
-            Status = PaymentStatus.PENDING;
+            Amount = 0m;
             PaymentDate = null;
-            DueDate = DateTime.UtcNow.AddDays(PaymentPeriodDays);
+            DueDate = DateTime.UtcNow;
+            Method = null;
+            Status = PaymentStatus.PENDING;
             PolicyId = string.Empty;
         }
 
+        /// <summary>
+        /// Creates a scheduled premium before the client chooses
+        /// Card or EFT.
+        /// </summary>
+        public Payment(
+            decimal amount,
+            string policyId,
+            DateTime dueDate)
+        {
+            ValidatePaymentDetails(
+                amount,
+                policyId,
+                dueDate);
+
+            PaymentId = Guid.NewGuid().ToString();
+            Amount = amount;
+            PolicyId = policyId;
+            DueDate = EnsureUtc(dueDate);
+            Method = null;
+            Status = PaymentStatus.PENDING;
+            PaymentDate = null;
+        }
+
+        /// <summary>
+        /// Backward-compatible constructor used by the existing
+        /// PaymentService when a payment method is already known.
+        /// </summary>
         public Payment(
             decimal amount,
             PaymentMethodType method,
+            string policyId,
+            DateTime dueDate)
+        {
+            ValidatePaymentDetails(
+                amount,
+                policyId,
+                dueDate);
+
+            ValidateOnlineMethod(method);
+
+            PaymentId = Guid.NewGuid().ToString();
+            Amount = amount;
+            PolicyId = policyId;
+            DueDate = EnsureUtc(dueDate);
+            Method = method;
+            Status = PaymentStatus.PENDING;
+            PaymentDate = null;
+        }
+
+        public bool ProcessPayment()
+        {
+            MarkSuccessful();
+            return true;
+        }
+
+        public void SelectPaymentMethod(
+            PaymentMethodType method)
+        {
+            ValidateOnlineMethod(method);
+
+            Method = method;
+        }
+
+        public void MarkPending()
+        {
+            Status = PaymentStatus.PENDING;
+            PaymentDate = null;
+        }
+
+        /// <summary>
+        /// Used when PaymentService has already selected a payment method.
+        /// </summary>
+        public void MarkSuccessful()
+        {
+            if (!Method.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "A payment method must be selected before confirming payment.");
+            }
+
+            ValidateOnlineMethod(
+                Method.Value);
+
+            Status = PaymentStatus.SUCCESSFUL;
+            PaymentDate = DateTime.UtcNow;
+        }
+
+        public void MarkSuccessful(
+            PaymentMethodType method)
+        {
+            SelectPaymentMethod(method);
+
+            Status = PaymentStatus.SUCCESSFUL;
+            PaymentDate = DateTime.UtcNow;
+        }
+
+        public void MarkFailed()
+        {
+            Status = PaymentStatus.FAILED;
+            PaymentDate = null;
+        }
+
+        public void MarkFailed(
+            PaymentMethodType method)
+        {
+            SelectPaymentMethod(method);
+
+            Status = PaymentStatus.FAILED;
+            PaymentDate = null;
+        }
+
+        public bool IsSuccessful()
+        {
+            return Status == PaymentStatus.SUCCESSFUL;
+        }
+
+        public bool IsPending()
+        {
+            return Status == PaymentStatus.PENDING;
+        }
+
+        public bool IsFailed()
+        {
+            return Status == PaymentStatus.FAILED;
+        }
+
+        public bool IsOverdue()
+        {
+            return Status == PaymentStatus.PENDING &&
+                   DueDate.Date < DateTime.UtcNow.Date;
+        }
+
+        public static DateTime CalculateDueDate(
+            DateTime policyStartDate,
+            int paymentNumber)
+        {
+            if (paymentNumber < 1)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(paymentNumber),
+                    "Payment number must be at least 1.");
+            }
+
+            return EnsureUtc(policyStartDate)
+                .AddMonths(paymentNumber);
+        }
+
+        private static void ValidatePaymentDetails(
+            decimal amount,
             string policyId,
             DateTime dueDate)
         {
@@ -63,64 +210,46 @@ namespace PolicyManagement.Models.PaymentManagement
                     nameof(policyId));
             }
 
-            PaymentId = Guid.NewGuid().ToString();
-            Amount = amount;
-            Method = method;
-            PolicyId = policyId;
-            DueDate = dueDate;
-            Status = PaymentStatus.PENDING;
-            PaymentDate = null;
-        }
-
-        public bool ProcessPayment()
-        {
-            MarkSuccessful();
-            return true;
-        }
-
-        public void MarkPending()
-        {
-            Status = PaymentStatus.PENDING;
-            PaymentDate = null;
-        }
-
-        public void MarkSuccessful()
-        {
-            Status = PaymentStatus.SUCCESSFUL;
-            PaymentDate = DateTime.UtcNow;
-        }
-
-        public void MarkFailed()
-        {
-            Status = PaymentStatus.FAILED;
-            PaymentDate = null;
-        }
-
-        public bool IsSuccessful()
-        {
-            return Status == PaymentStatus.SUCCESSFUL;
-        }
-
-        public bool IsOverdue()
-        {
-            return Status == PaymentStatus.PENDING &&
-                   DueDate < DateTime.UtcNow;
-        }
-
-        public static DateTime CalculateDueDate(
-            DateTime policyStartDate,
-            int paymentNumber)
-        {
-            if (paymentNumber < 1)
+            if (dueDate == default)
             {
-                throw new ArgumentOutOfRangeException(
-                    nameof(paymentNumber),
-                    "Payment number must be at least 1.");
+                throw new ArgumentException(
+                    "A valid due date is required.",
+                    nameof(dueDate));
+            }
+        }
+
+        private static void ValidateOnlineMethod(
+            PaymentMethodType method)
+        {
+            if (method == PaymentMethodType.CASH)
+            {
+                throw new InvalidOperationException(
+                    "Cash payments are not supported. Use Card or EFT.");
             }
 
-            return policyStartDate
-                .ToUniversalTime()
-                .AddDays(PaymentPeriodDays * paymentNumber);
+            if (method != PaymentMethodType.CARD &&
+                method != PaymentMethodType.EFT)
+            {
+                throw new InvalidOperationException(
+                    "Unsupported payment method.");
+            }
+        }
+
+        private static DateTime EnsureUtc(
+            DateTime value)
+        {
+            return value.Kind switch
+            {
+                DateTimeKind.Utc => value,
+
+                DateTimeKind.Local =>
+                    value.ToUniversalTime(),
+
+                _ =>
+                    DateTime.SpecifyKind(
+                        value,
+                        DateTimeKind.Utc)
+            };
         }
     }
 }

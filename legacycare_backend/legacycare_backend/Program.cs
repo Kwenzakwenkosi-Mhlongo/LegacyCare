@@ -351,6 +351,10 @@ builder.Services.AddScoped<
     IPaymentMethodService,
     PaymentMethodService>();
 
+    builder.Services.AddScoped<
+    IPaymentScheduleService,
+    PaymentScheduleService>();
+
 builder.Services.AddScoped<
     IInvoiceService,
     InvoiceService>();

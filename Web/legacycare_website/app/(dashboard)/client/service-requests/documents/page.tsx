@@ -202,14 +202,11 @@ function formatDate(
     return "Date unavailable";
   }
 
-  return date.toLocaleDateString(
-    "en-ZA",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
+  return date.toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function getPackageName(
@@ -241,27 +238,16 @@ function buildDownloadUrl(
   downloadUrl: string
 ): string {
   if (
-    downloadUrl.startsWith(
-      "http://"
-    ) ||
-    downloadUrl.startsWith(
-      "https://"
-    )
+    downloadUrl.startsWith("http://") ||
+    downloadUrl.startsWith("https://")
   ) {
     return downloadUrl;
   }
 
   const baseUrl =
-    API_URL.replace(
-      /\/api$/,
-      ""
-    );
+    API_URL.replace(/\/api$/, "");
 
-  if (
-    downloadUrl.startsWith(
-      "/api/"
-    )
-  ) {
+  if (downloadUrl.startsWith("/api/")) {
     return `${baseUrl}${downloadUrl}`;
   }
 
@@ -272,8 +258,7 @@ function buildDownloadUrl(
 }
 
 export default function DocumentsPage() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
   const [
     branches,
@@ -288,9 +273,7 @@ export default function DocumentsPage() {
   const [
     previousUploads,
     setPreviousUploads,
-  ] = useState<
-    PreviousUpload[]
-  >([]);
+  ] = useState<PreviousUpload[]>([]);
 
   const [
     form,
@@ -310,8 +293,18 @@ export default function DocumentsPage() {
   ] = useState(false);
 
   const [
+    previewing,
+    setPreviewing,
+  ] = useState(false);
+
+  const [
     error,
     setError,
+  ] = useState("");
+
+  const [
+    success,
+    setSuccess,
   ] = useState("");
 
   const [
@@ -375,6 +368,7 @@ export default function DocumentsPage() {
         try {
           setLoading(true);
           setError("");
+          setSuccess("");
           setUploadHistoryWarning("");
 
           const token =
@@ -403,39 +397,27 @@ export default function DocumentsPage() {
               fetch(
                 `${API_URL}/Branch`,
                 {
-                  method:
-                    "GET",
-
+                  method: "GET",
                   headers,
-
-                  cache:
-                    "no-store",
+                  cache: "no-store",
                 }
               ),
 
               fetch(
                 `${API_URL}/Policy/client`,
                 {
-                  method:
-                    "GET",
-
+                  method: "GET",
                   headers,
-
-                  cache:
-                    "no-store",
+                  cache: "no-store",
                 }
               ),
 
               fetch(
                 `${API_URL}/Document/client/uploads`,
                 {
-                  method:
-                    "GET",
-
+                  method: "GET",
                   headers,
-
-                  cache:
-                    "no-store",
+                  cache: "no-store",
                 }
               ),
             ]);
@@ -552,10 +534,14 @@ export default function DocumentsPage() {
                 .catch(() => null);
 
             if (response.ok) {
-              setPreviousUploads(
+              const uploads:
+                PreviousUpload[] =
                 Array.isArray(data)
                   ? data
-                  : []
+                  : [];
+
+              setPreviousUploads(
+                uploads
               );
             } else {
               setPreviousUploads([]);
@@ -563,7 +549,7 @@ export default function DocumentsPage() {
               setUploadHistoryWarning(
                 extractErrorMessage(
                   data,
-                  "Previously uploaded documents could not be loaded. You can still submit a normal document request."
+                  `Previously uploaded documents could not be loaded (${response.status}).`
                 )
               );
             }
@@ -596,6 +582,9 @@ export default function DocumentsPage() {
   function handleDocumentTypeChange(
     value: string
   ): void {
+    setError("");
+    setSuccess("");
+
     setForm(
       (current) => ({
         ...current,
@@ -604,7 +593,10 @@ export default function DocumentsPage() {
           value,
 
         previousUploadId:
-          "",
+          value ===
+          "Previously Uploaded Document"
+            ? current.previousUploadId
+            : "",
       })
     );
   }
@@ -639,6 +631,7 @@ export default function DocumentsPage() {
     }
 
     try {
+      setPreviewing(true);
       setError("");
 
       const token =
@@ -656,8 +649,7 @@ export default function DocumentsPage() {
             selectedUpload.downloadUrl
           ),
           {
-            method:
-              "GET",
+            method: "GET",
 
             headers: {
               Authorization:
@@ -703,22 +695,30 @@ export default function DocumentsPage() {
         60_000
       );
     } catch (err) {
+      console.error(
+        "[DocumentRequest] PREVIEW ERROR:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
           : "Unable to open the uploaded document."
       );
+    } finally {
+      setPreviewing(false);
     }
   }
 
   async function handleSubmit(
-    event: FormEvent
+    event: FormEvent<HTMLFormElement>
   ): Promise<void> {
     event.preventDefault();
 
     try {
       setSubmitting(true);
       setError("");
+      setSuccess("");
 
       if (!form.branchId) {
         throw new Error(
@@ -736,7 +736,7 @@ export default function DocumentsPage() {
 
       if (
         requestingPreviousUpload &&
-        !form.previousUploadId
+        !selectedUpload
       ) {
         throw new Error(
           "Please select the previously uploaded document you need."
@@ -792,6 +792,14 @@ export default function DocumentsPage() {
           `Policy: ${selectedPolicy.policyId}`
         );
 
+        if (
+          selectedPolicy.policyNumber
+        ) {
+          requestDetails.push(
+            `Policy number: ${selectedPolicy.policyNumber}`
+          );
+        }
+
         const packageName =
           getPackageName(
             selectedPolicy
@@ -809,10 +817,10 @@ export default function DocumentsPage() {
       ) {
         requestDetails.push(
           "",
-          "Previously uploaded document:",
+          "Previously uploaded document request:",
+          `Requested file: ${selectedUpload.fileName}`,
           `Document ID: ${selectedUpload.documentId}`,
           `Document type: ${selectedUpload.documentType}`,
-          `File name: ${selectedUpload.fileName}`,
           `Source: ${selectedUpload.sourceType}`,
           `Source ID: ${selectedUpload.sourceId}`,
           `Reference: ${
@@ -864,8 +872,7 @@ export default function DocumentsPage() {
         await fetch(
           `${API_URL}/ServiceRequest`,
           {
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
               Accept:
@@ -920,11 +927,24 @@ export default function DocumentsPage() {
         );
       }
 
-      router.push(
-        "/client/service-requests?documentCreated=true"
+      setSuccess(
+        selectedUpload
+          ? `Document request submitted successfully for "${selectedUpload.fileName}". Redirecting to My Requests...`
+          : "Document request submitted successfully. Redirecting to My Requests..."
       );
 
-      router.refresh();
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+
+      window.setTimeout(() => {
+        router.push(
+          "/client/service-requests?documentCreated=true"
+        );
+
+        router.refresh();
+      }, 1500);
     } catch (err) {
       console.error(
         "[DocumentRequest] SUBMIT ERROR:",
@@ -952,7 +972,7 @@ export default function DocumentsPage() {
         </Link>
 
         <div className="mt-4 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-2xl">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-2xl">
             📑
           </div>
 
@@ -981,6 +1001,26 @@ export default function DocumentsPage() {
         </p>
       </div>
 
+      {success ? (
+        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">
+              ✅
+            </span>
+
+            <div>
+              <p className="font-semibold text-green-900">
+                Request submitted successfully
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-green-700">
+                {success}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
@@ -994,11 +1034,7 @@ export default function DocumentsPage() {
       ) : null}
 
       <form
-        onSubmit={(event) =>
-          void handleSubmit(
-            event
-          )
-        }
+        onSubmit={handleSubmit}
         className="space-y-6"
       >
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -1021,6 +1057,7 @@ export default function DocumentsPage() {
             <select
               id="documentType"
               required
+              disabled={success !== ""}
               value={
                 form.documentType
               }
@@ -1029,7 +1066,7 @@ export default function DocumentsPage() {
                   event.target.value
                 )
               }
-              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
             >
               <option value="">
                 Select a document
@@ -1065,10 +1102,29 @@ export default function DocumentsPage() {
           </div>
 
           {requestingPreviousUpload ? (
-            <div className="mt-6">
+            <div className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-indigo-900">
+                    📤 Your Previously Uploaded Documents
+                  </h3>
+
+                  <p className="mt-1 text-sm text-indigo-700">
+                    Select the exact document you want to request.
+                  </p>
+                </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-700">
+                  {
+                    previousUploads.length
+                  }{" "}
+                  available
+                </span>
+              </div>
+
               <label
                 htmlFor="previousUpload"
-                className="block text-sm font-medium text-gray-700"
+                className="mt-5 block text-sm font-medium text-gray-700"
               >
                 Which previously uploaded document do you need?
               </label>
@@ -1079,7 +1135,8 @@ export default function DocumentsPage() {
                 disabled={
                   loading ||
                   previousUploads.length ===
-                    0
+                    0 ||
+                  success !== ""
                 }
                 value={
                   form.previousUploadId
@@ -1093,7 +1150,7 @@ export default function DocumentsPage() {
               >
                 <option value="">
                   {loading
-                    ? "Loading past uploads..."
+                    ? "Loading previous uploads..."
                     : previousUploads.length ===
                         0
                       ? "No previous uploads available"
@@ -1126,13 +1183,12 @@ export default function DocumentsPage() {
                 )}
               </select>
 
-              {previousUploads.length ===
-                0 &&
-              !loading ? (
-                <p className="mt-2 text-xs leading-5 text-amber-700">
-                  No previously uploaded documents are currently available.
-                  You can still choose another document type or select Other
-                  Document and explain what you need.
+              {!loading &&
+              previousUploads.length ===
+                0 ? (
+                <p className="mt-3 text-sm text-amber-700">
+                  No previously uploaded documents are available for this
+                  account.
                 </p>
               ) : null}
             </div>
@@ -1143,23 +1199,29 @@ export default function DocumentsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-teal-900">
-                    📤 Selected Previous Upload
+                    ✅ Selected Previous Upload
                   </p>
 
                   <p className="mt-1 text-xs text-teal-700">
-                    This is the document that will be referenced in your request.
+                    This document will be included in your request.
                   </p>
                 </div>
 
                 {selectedUpload.downloadUrl ? (
                   <button
                     type="button"
+                    disabled={
+                      previewing ||
+                      success !== ""
+                    }
                     onClick={() =>
                       void handleOpenPreviousUpload()
                     }
-                    className="rounded-lg border border-teal-300 bg-white px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
+                    className="rounded-lg border border-teal-300 bg-white px-3 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Preview Document
+                    {previewing
+                      ? "Opening..."
+                      : "Preview Document"}
                   </button>
                 ) : null}
               </div>
@@ -1167,22 +1229,10 @@ export default function DocumentsPage() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-xs text-teal-700">
-                    Document Type
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-gray-900">
-                    {
-                      selectedUpload.documentType
-                    }
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-xs text-teal-700">
                     File Name
                   </p>
 
-                  <p className="mt-1 break-all text-sm font-medium text-gray-900">
+                  <p className="mt-1 break-all text-sm font-semibold text-gray-900">
                     {
                       selectedUpload.fileName
                     }
@@ -1191,12 +1241,12 @@ export default function DocumentsPage() {
 
                 <div>
                   <p className="text-xs text-teal-700">
-                    Source
+                    Document Type
                   </p>
 
                   <p className="mt-1 text-sm font-medium text-gray-900">
                     {
-                      selectedUpload.sourceType
+                      selectedUpload.documentType
                     }
                   </p>
                 </div>
@@ -1236,7 +1286,7 @@ export default function DocumentsPage() {
                 </div>
 
                 {selectedUpload.relatedPersonName ? (
-                  <div className="sm:col-span-2">
+                  <div>
                     <p className="text-xs text-teal-700">
                       Related Person
                     </p>
@@ -1266,18 +1316,21 @@ export default function DocumentsPage() {
             <select
               id="policyId"
               disabled={
-                loading
+                loading ||
+                success !== ""
               }
               value={
                 form.policyId
               }
               onChange={(event) =>
-                setForm({
-                  ...form,
+                setForm(
+                  (current) => ({
+                    ...current,
 
-                  policyId:
-                    event.target.value,
-                })
+                    policyId:
+                      event.target.value,
+                  })
+                )
               }
               className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
             >
@@ -1313,8 +1366,7 @@ export default function DocumentsPage() {
 
             <p className="mt-2 text-sm leading-6 text-green-800">
               LegacyCare will provide the official checklist needed for your
-              specific account, policy or service. Requirements can differ
-              depending on what needs to be verified.
+              specific account, policy or service.
             </p>
 
             <div className="mt-4 rounded-xl border border-green-200 bg-white p-4">
@@ -1347,11 +1399,6 @@ export default function DocumentsPage() {
                   📑 Additional supporting documents required for the specific request
                 </li>
               </ul>
-
-              <p className="mt-4 text-xs leading-5 text-gray-500">
-                The Clerk will confirm the exact official requirements for your
-                case before you provide anything additional.
-              </p>
             </div>
           </section>
         ) : null}
@@ -1372,18 +1419,21 @@ export default function DocumentsPage() {
             <select
               id="requestReason"
               required
+              disabled={success !== ""}
               value={
                 form.requestReason
               }
               onChange={(event) =>
-                setForm({
-                  ...form,
+                setForm(
+                  (current) => ({
+                    ...current,
 
-                  requestReason:
-                    event.target.value,
-                })
+                    requestReason:
+                      event.target.value,
+                  })
+                )
               }
-              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
             >
               <option value="">
                 Select a reason
@@ -1413,18 +1463,21 @@ export default function DocumentsPage() {
             <select
               id="deliveryMethod"
               required
+              disabled={success !== ""}
               value={
                 form.deliveryMethod
               }
               onChange={(event) =>
-                setForm({
-                  ...form,
+                setForm(
+                  (current) => ({
+                    ...current,
 
-                  deliveryMethod:
-                    event.target.value,
-                })
+                    deliveryMethod:
+                      event.target.value,
+                  })
+                )
               }
-              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+              className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
             >
               {DELIVERY_METHODS.map(
                 (method) => (
@@ -1450,17 +1503,22 @@ export default function DocumentsPage() {
             <select
               id="branchId"
               required
-              disabled={loading}
+              disabled={
+                loading ||
+                success !== ""
+              }
               value={
                 form.branchId
               }
               onChange={(event) =>
-                setForm({
-                  ...form,
+                setForm(
+                  (current) => ({
+                    ...current,
 
-                  branchId:
-                    event.target.value,
-                })
+                    branchId:
+                      event.target.value,
+                  })
+                )
               }
               className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
             >
@@ -1504,19 +1562,22 @@ export default function DocumentsPage() {
             id="description"
             rows={7}
             maxLength={2000}
+            disabled={success !== ""}
             value={
               form.description
             }
             onChange={(event) =>
-              setForm({
-                ...form,
+              setForm(
+                (current) => ({
+                  ...current,
 
-                description:
-                  event.target.value,
-              })
+                  description:
+                    event.target.value,
+                })
+              )
             }
-            placeholder="Example: I need the latest copy for my personal records. Please include the most recent version available..."
-            className="mt-5 w-full resize-y rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+            placeholder="Example: I need the latest copy for my personal records..."
+            className="mt-5 w-full resize-y rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 disabled:bg-gray-100"
           />
 
           <div className="mt-1 flex flex-wrap justify-between gap-2 text-xs text-gray-400">
@@ -1586,13 +1647,18 @@ export default function DocumentsPage() {
             type="submit"
             disabled={
               submitting ||
-              loading
+              loading ||
+              success !== ""
             }
             className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting
               ? "Submitting..."
-              : "Submit Document Request"}
+              : success
+                ? "Submitted Successfully"
+                : selectedUpload
+                  ? `Request ${selectedUpload.fileName}`
+                  : "Submit Document Request"}
           </button>
         </div>
       </form>
